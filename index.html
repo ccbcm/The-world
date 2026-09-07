@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#080705">
+  <meta name="description" content="双人金光 · 循环影像">
+  <title>CCBCM · 双人金光</title>
+  <style>
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#080705;color:#eee;font-family:system-ui,sans-serif}main{height:100%;height:100dvh;display:grid;place-items:center}video{display:block;width:100%;height:100%;object-fit:contain}button{position:fixed;bottom:max(24px,env(safe-area-inset-bottom));right:24px;padding:10px 18px;border:1px solid #ffffff50;border-radius:24px;background:#12100bc9;color:#fff;font:inherit;cursor:pointer;backdrop-filter:blur(12px)}button:hover{background:#332919}button:focus-visible{outline:2px solid #eecf8b;outline-offset:4px}#status{position:fixed;bottom:80px;left:24px;right:24px;text-align:center;color:#f3d69b}a{color:inherit}
+  </style>
+</head>
+<body>
+  <main aria-label="双人金光循环影像">
+    <video id="film" autoplay muted loop playsinline preload="auto" poster="poster.jpg" aria-label="双人金光"><source src="hero.mp4" type="video/mp4">你的浏览器不支持视频播放，请<a href="hero.mp4">打开视频</a>。</video>
+  </main>
+  <p id="status" role="status" hidden></p>
+  <button id="toggle" type="button" aria-label="暂停视频">暂停</button>
+  <script>
+    const video=document.querySelector('#film'),button=document.querySelector('#toggle'),status=document.querySelector('#status');
+    function sync(){button.textContent=video.paused?'播放':'暂停';button.setAttribute('aria-label',video.paused?'播放视频':'暂停视频')}
+    async function play(){try{await video.play();status.hidden=true}catch{sync()}}
+    button.addEventListener('click',()=>video.paused?play():video.pause());
+    video.addEventListener('play',sync);video.addEventListener('pause',sync);
+    video.querySelector('source').addEventListener('error',()=>{status.textContent='视频暂时无法加载，请刷新页面重试。';status.hidden=false});
+    play();
+  </script>
+</body>
+</html>
