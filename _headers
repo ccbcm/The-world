@@ -13,3 +13,9 @@
 
 /architecture.js
   Cache-Control: public, max-age=0, must-revalidate
+
+/gallery/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/city.html
+  Cache-Control: public, max-age=0, must-revalidate

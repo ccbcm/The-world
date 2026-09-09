@@ -6,8 +6,8 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../..");
 const output = path.join(root, "dist");
 
-const files = ["index.html", "main.js", "character.js", "architecture.js", "_headers"];
-const directories = ["assets", "vendor", "licenses"];
+const files = ["index.html", "city.html", "main.js", "character.js", "architecture.js", "_headers"];
+const directories = ["assets", "vendor", "licenses", "gallery"];
 
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
@@ -23,3 +23,4 @@ for (const directory of directories) {
 }
 
 console.log(`Cloudflare Pages output created at ${output}`);
+
