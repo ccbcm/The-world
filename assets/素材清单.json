@@ -1,0 +1,132 @@
+[
+  {
+    "asset": "asphalt_02",
+    "channel": "Diffuse",
+    "file": "asphalt_02_diff_2k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/asphalt_02/asphalt_02_diff_2k.jpg",
+    "bytes": 3075676,
+    "md5": "336af399fd98a39ab986d8b3bf73b4ff",
+    "license": "CC0",
+    "source": "https://polyhaven.com/a/asphalt_02"
+  },
+  {
+    "asset": "asphalt_02",
+    "channel": "nor_gl",
+    "file": "asphalt_02_nor_gl_2k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/asphalt_02/asphalt_02_nor_gl_2k.jpg",
+    "bytes": 4943950,
+    "md5": "77ebd1cc0b020ccaa1c6b58f103d1f75",
+    "license": "CC0",
+    "source": "https://polyhaven.com/a/asphalt_02"
+  },
+  {
+    "asset": "asphalt_02",
+    "channel": "Rough",
+    "file": "asphalt_02_rough_2k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/asphalt_02/asphalt_02_rough_2k.jpg",
+    "bytes": 2230457,
+    "md5": "6fe669ab38640ef2009d6a28d1ad5ee9",
+    "license": "CC0",
+    "source": "https://polyhaven.com/a/asphalt_02"
+  },
+  {
+    "asset": "concrete_pavement",
+    "channel": "Diffuse",
+    "file": "concrete_pavement_diff_2k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/concrete_pavement/concrete_pavement_diff_2k.jpg",
+    "bytes": 3817566,
+    "md5": "f7cdc6f38538e2739d48fbb4f1507ddb",
+    "license": "CC0",
+    "source": "https://polyhaven.com/a/concrete_pavement"
+  },
+  {
+    "asset": "concrete_pavement",
+    "channel": "nor_gl",
+    "file": "concrete_pavement_nor_gl_2k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/concrete_pavement/concrete_pavement_nor_gl_2k.jpg",
+    "bytes": 5179971,
+    "md5": "0b6ff8180e61242be0b89e8fe1d6fda7",
+    "license": "CC0",
+    "source": "https://polyhaven.com/a/concrete_pavement"
+  },
+  {
+    "asset": "concrete_pavement",
+    "channel": "Rough",
+    "file": "concrete_pavement_rough_2k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/concrete_pavement/concrete_pavement_rough_2k.jpg",
+    "bytes": 2125646,
+    "md5": "670223ce80309b606ceea892f47aa766",
+    "license": "CC0",
+    "source": "https://polyhaven.com/a/concrete_pavement"
+  },
+  {
+    "asset": "granite_tile",
+    "channel": "Diffuse",
+    "file": "granite_tile_diff_2k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/granite_tile/granite_tile_diff_2k.jpg",
+    "bytes": 2938829,
+    "md5": "79a1eaac48a3d6720a88c216997dbd67",
+    "license": "CC0",
+    "source": "https://polyhaven.com/a/granite_tile"
+  },
+  {
+    "asset": "granite_tile",
+    "channel": "nor_gl",
+    "file": "granite_tile_nor_gl_2k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/granite_tile/granite_tile_nor_gl_2k.jpg",
+    "bytes": 2486724,
+    "md5": "da6b09b4f8bff2e4d28cd29294b1b10f",
+    "license": "CC0",
+    "source": "https://polyhaven.com/a/granite_tile"
+  },
+  {
+    "asset": "granite_tile",
+    "channel": "Rough",
+    "file": "granite_tile_rough_2k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/granite_tile/granite_tile_rough_2k.jpg",
+    "bytes": 2738066,
+    "md5": "d772d400dd0f25ef2231fb000360d3d5",
+    "license": "CC0",
+    "source": "https://polyhaven.com/a/granite_tile"
+  },
+  {
+    "asset": "aerial_grass_rock",
+    "channel": "Diffuse",
+    "file": "aerial_grass_rock_diff_2k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/aerial_grass_rock/aerial_grass_rock_diff_2k.jpg",
+    "bytes": 2624635,
+    "md5": "024018554c0002620127749d1f585f3d",
+    "license": "CC0",
+    "source": "https://polyhaven.com/a/aerial_grass_rock"
+  },
+  {
+    "asset": "aerial_grass_rock",
+    "channel": "nor_gl",
+    "file": "aerial_grass_rock_nor_gl_2k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/aerial_grass_rock/aerial_grass_rock_nor_gl_2k.jpg",
+    "bytes": 3799025,
+    "md5": "0c5423ce365169df7c242933b5137696",
+    "license": "CC0",
+    "source": "https://polyhaven.com/a/aerial_grass_rock"
+  },
+  {
+    "asset": "aerial_grass_rock",
+    "channel": "Rough",
+    "file": "aerial_grass_rock_rough_2k.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/aerial_grass_rock/aerial_grass_rock_rough_2k.jpg",
+    "bytes": 1495844,
+    "md5": "8d181000237d420a73f99dfc260dab17",
+    "license": "CC0",
+    "source": "https://polyhaven.com/a/aerial_grass_rock"
+  },
+  {
+    "asset": "shanghai_riverside",
+    "channel": "hdri",
+    "file": "shanghai_riverside_4k.hdr",
+    "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/4k/shanghai_riverside_4k.hdr",
+    "bytes": 25272079,
+    "md5": "bd7da3b2a62cb3282c5524a5818d510b",
+    "license": "CC0",
+    "source": "https://polyhaven.com/a/shanghai_riverside"
+  }
+]

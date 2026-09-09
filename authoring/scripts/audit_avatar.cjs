@@ -1,0 +1,2 @@
+const {chromium}=require('C:/Users/27035/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+(async()=>{const b=await chromium.launch({channel:'chrome',headless:true});const p=await b.newPage();await p.goto('http://127.0.0.1:8765');await p.waitForFunction(()=>window.__cityReady,{timeout:120000});console.log(await p.evaluate(()=>window.__avatarMaterialAudit));await b.close();})();

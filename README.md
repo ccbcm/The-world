@@ -1,10 +1,10 @@
-# CCBCM
+# ccbcm.net · 上海陆家嘴三维漫游
 
-ccbcm.net 的视频首页。静态文件位于仓库根目录，不需要服务器或安装依赖。
+ccbcm.net 首页是可交互的上海陆家嘴三维场景，支持俯瞰、自由飞行、第三人称漫游、昼夜切换与画质选择。
 
-Cloudflare Pages: production branch `main`, no build command, output directory `/`.
+网页直接由仓库根目录发布，不需要构建命令。`assets/` 是网页用的分块 glTF、角色、贴图与 HDRI；`authoring/` 保存 Blender 源文件和生成脚本，不会被首页加载。
 
-修改 `index.html` 可调整首页；替换 `hero.mp4` 与 `poster.jpg` 可更新影像。推送到 GitHub 后由 Cloudflare Pages 自动发布。
+操作：WASD 移动，Shift 跑步，空格跳跃，鼠标拖动转动视角，滚轮调整第三人称距离。
 
-视频默认静音自动循环，提供暂停/播放按钮，完整显示画面。
+资产许可和来源见 `licenses/素材来源.md`。地理数据来自 OpenStreetMap contributors。
 

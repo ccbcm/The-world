@@ -1,0 +1,10 @@
+const {chromium}=require('C:/Users/27035/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const fs=require('fs'),R='C:/Users/27035/OneDrive/文档/Blender/上海陆家嘴';
+(async()=>{const browser=await chromium.launch({channel:'chrome',headless:true,args:['--ignore-gpu-blocklist']});const page=await browser.newPage({viewport:{width:1000,height:760}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:8765');await page.waitForFunction(()=>window.__cityReady||window.__cityError,{timeout:120000});if(await page.evaluate(()=>window.__cityError))throw Error('load failed');
+ const stairs=JSON.parse(fs.readFileSync(R+'/网页漫游/assets/walkways.json')).stairs;const stair=stairs.find(e=>e.id==='166125936');const top=stair.points[0],bottom=stair.points.at(-1),angle=Math.atan2(-(top[0]-bottom[0]),-(top[2]-bottom[2]));
+ await page.evaluate(({bottom,angle})=>{window.__cityTest.setMode('walk');window.__cityTest.teleport(bottom[0],bottom[1]+.015,bottom[2],angle);},{bottom,angle});
+ await page.keyboard.down('Shift');await page.keyboard.down('w');let maxHeight=0;for(let i=0;i<30;i++){await page.waitForTimeout(250);const a=await page.evaluate(()=>window.__cityTest.getAvatar());maxHeight=Math.max(maxHeight,a.position[1]);if(maxHeight>6.95)break;}
+ await page.keyboard.up('w');await page.keyboard.up('Shift');const up=await page.evaluate(()=>window.__cityTest.getAvatar());await page.screenshot({path:R+'/预览/天桥行走验证.png'});
+ await page.keyboard.down('Shift');await page.keyboard.down('s');for(let i=0;i<30;i++){await page.waitForTimeout(250);const a=await page.evaluate(()=>window.__cityTest.getAvatar());if(a.position[1]<1)break;}await page.keyboard.up('s');await page.keyboard.up('Shift');const down=await page.evaluate(()=>window.__cityTest.getAvatar());
+ const result={errors,stair:stair.id,maxHeight,up,down,passed:maxHeight>6.95&&down.position[1]<1};fs.writeFileSync(R+'/天桥行走验证.json',JSON.stringify(result,null,2));console.log(result);await browser.close();if(!result.passed||errors.length)process.exitCode=1;
+})().catch(e=>{console.error(e);process.exit(1)});
