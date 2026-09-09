@@ -1,0 +1,8 @@
+{
+  "name": "ccbcm-lujiazui-3d",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "node authoring/scripts/build-site.mjs"
+  }
+}
