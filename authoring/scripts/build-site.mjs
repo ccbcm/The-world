@@ -6,7 +6,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../..");
 const output = path.join(root, "dist");
 
-const files = ["index.html", "main.js", "character.js", "_headers"];
+const files = ["index.html", "main.js", "character.js", "architecture.js", "_headers"];
 const directories = ["assets", "vendor", "licenses"];
 
 await rm(output, { recursive: true, force: true });

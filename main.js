@@ -1,3 +1,4 @@
+import {createArchitectureFinish} from './architecture.js';
 import {loadCharacter} from './character.js';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -10,8 +11,8 @@ const renderer=new THREE.WebGLRenderer({canvas,antialias:true,logarithmicDepthBu
 renderer.setPixelRatio(Math.min(devicePixelRatio,1));renderer.setSize(innerWidth,innerHeight);
 renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.8;
 const scene=new THREE.Scene();scene.background=new THREE.Color('#b8cbd4');scene.fog=new THREE.FogExp2('#b8cbd4',.000075);
-const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.15,16000);camera.position.set(-1150,980,-740);
-const orbit=new OrbitControls(camera,canvas);orbit.target.set(340,220,350);orbit.enableDamping=true;orbit.maxDistance=3500;orbit.minDistance=3;orbit.maxPolarAngle=Math.PI*.49;
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.15,16000);camera.position.set(-1250,220,200);
+const orbit=new OrbitControls(camera,canvas);orbit.target.set(300,245,330);orbit.enableDamping=true;orbit.maxDistance=3500;orbit.minDistance=3;orbit.maxPolarAngle=Math.PI*.49;
 const pmrem=new THREE.PMREMGenerator(renderer),sky=new Sky();sky.scale.setScalar(7000);sky.material.uniforms.turbidity.value=5;sky.material.uniforms.rayleigh.value=1.5;sky.material.uniforms.mieCoefficient.value=.005;sky.material.uniforms.mieDirectionalG.value=.8;sky.material.uniforms.sunPosition.value.set(-1000,1600,-600);const envScene=new THREE.Scene();envScene.add(sky);let env=pmrem.fromScene(envScene,.04);scene.environment=env.texture;scene.environmentIntensity=.07;scene.add(sky);sky.material.depthWrite=false;sky.frustumCulled=false;
 
 const cloudCanvas=document.createElement('canvas');cloudCanvas.width=512;cloudCanvas.height=256;
@@ -52,7 +53,7 @@ for(const m of ['orbit','fly','walk'])$(m).onclick=()=>setMode(m);
 $('pearl').onclick=()=>preset([-430,190,-270],[0,220,0]);
 $('trio').onclick=()=>preset([-390,720,-460],[625,280,607]);
 $('river').onclick=()=>{setMode('walk');toast('第三人称 · Vita')};
-$('time').onclick=()=>{day=!day;document.body.classList.toggle('night',!day);$('time').textContent=day?'☀ 白天':'◐ 黄昏';scene.background.set(day?'#b8cbd4':'#697883');scene.fog.color.copy(scene.background);hemi.intensity=day?1.3:.8;sun.intensity=day?3.2:2.2;sun.color.set(day?0xfff0db:0xffb774);sun.position.set(-1000,day?1600:250,-600);renderer.toneMappingExposure=day?.8:.9;sky.material.uniforms.sunPosition.value.copy(sun.position);scene.environment=photographedEnvironment?.texture||env.texture;scene.environmentIntensity=day?.65:.4;renderer.shadowMap.needsUpdate=true};
+$('time').onclick=()=>{day=!day;architecture.setDusk(day?0:1);document.body.classList.toggle('night',!day);$('time').textContent=day?'☀ 白天':'◐ 黄昏';scene.background.set(day?'#b8cbd4':'#697883');scene.fog.color.copy(scene.background);hemi.intensity=day?1.3:.8;sun.intensity=day?3.2:2.2;sun.color.set(day?0xfff0db:0xffb774);sun.position.set(-1000,day?1600:250,-600);renderer.toneMappingExposure=day?.8:.9;sky.material.uniforms.sunPosition.value.copy(sun.position);scene.environment=photographedEnvironment?.texture||env.texture;scene.environmentIntensity=day?.65:.4;renderer.shadowMap.needsUpdate=true};
 $('quality').onclick=()=>{high=!high;renderer.setPixelRatio(Math.min(devicePixelRatio,high?1.5:1));renderer.shadowMap.enabled=high;scene.traverse(o=>{if(o.isMesh)o.castShadow=high});renderer.shadowMap.needsUpdate=true;$('quality').textContent='画质：'+(high?'精细':'标准')};
 $('fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch{toast('当前浏览器不支持全屏')}};
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
@@ -70,13 +71,15 @@ function waterMaterial(mesh){
 }
 let waterNormal,riverNormals;const waterBodies=[];
 function installRiver(mesh){
+ waterNormal=waterMaterial(mesh);return;
  const geometry=mesh.geometry.clone();geometry.applyMatrix4(mesh.matrixWorld);geometry.computeBoundingBox();const level=geometry.boundingBox.min.y;
  geometry.translate(0,-level,0);geometry.rotateX(Math.PI/2);
  const water=new Water(geometry,{textureWidth:512,textureHeight:512,waterNormals:riverNormals,sunDirection:sun.position.clone().normalize(),sunColor:0xffead4,waterColor:0x43554b,distortionScale:.65,alpha:1,fog:true,side:THREE.DoubleSide});
  water.rotation.x=-Math.PI/2;water.position.y=level;water.material.uniforms.size.value=1.2;mesh.visible=false;scene.add(water);waterBodies.push(water);
 }
 const treeLOD=[];let treeLODClock=0;const treeMatrix=new THREE.Matrix4(),treeRotation=new THREE.Quaternion(),treePosition=new THREE.Vector3(),treeScale=new THREE.Vector3();
-function updateTreeLOD(){if(!manifest)return;for(const group of treeLOD){let count=0;for(const t of manifest.trees){const distance2=(camera.position.x-t.p[0])**2+(camera.position.z-t.p[2])**2,close=distance2<180**2;if(distance2>750**2||close!==group.near)continue;treePosition.fromArray(t.p);treeRotation.setFromAxisAngle(THREE.Object3D.DEFAULT_UP,t.ry);treeScale.fromArray(t.s);treeMatrix.compose(treePosition,treeRotation,treeScale);group.inst.setMatrixAt(count++,treeMatrix);}group.inst.count=count;group.inst.instanceMatrix.needsUpdate=true;}}
+function updateTreeLOD(){if(!manifest)return;for(const group of treeLOD){if(camera.position.y>120){group.inst.count=0;continue;}let count=0;for(const t of manifest.trees){const distance2=(camera.position.x-t.p[0])**2+(camera.position.z-t.p[2])**2,close=distance2<(high?100:45)**2;if(distance2>(mode==='orbit'?2000:high?650:380)**2||close!==group.near)continue;treePosition.fromArray(t.p);treeRotation.setFromAxisAngle(THREE.Object3D.DEFAULT_UP,t.ry);treeScale.fromArray(t.s);treeMatrix.compose(treePosition,treeRotation,treeScale);group.inst.setMatrixAt(count++,treeMatrix);}group.inst.count=count;group.inst.instanceMatrix.needsUpdate=true;}}
+const architecture=createArchitectureFinish();
 const scannedMaterials=new Map();
 let photographedEnvironment;
 async function loadScannedMaterials(){
@@ -94,7 +97,8 @@ async function init(){
   riverNormals=await new THREE.TextureLoader().loadAsync('./assets/textures/three_waternormals.jpg');riverNormals.wrapS=riverNormals.wrapT=THREE.RepeatWrapping;riverNormals.anisotropy=8;
   const lawnTex=await new THREE.TextureLoader().loadAsync('./assets/textures/eztree_grass.jpg');lawnTex.wrapS=lawnTex.wrapT=THREE.RepeatWrapping;lawnTex.flipY=false;lawnTex.colorSpace=THREE.SRGBColorSpace;lawnTex.anisotropy=8;scannedMaterials.set('v02 草地',new THREE.MeshStandardMaterial({name:'v02 草地',map:lawnTex,roughness:.96,side:THREE.DoubleSide}));
   for(const name of ['步行桥面 · 7m','桥接台阶'])scannedMaterials.set(name,scannedMaterials.get('人行浅色铺装'));
-  const hdr=await new HDRLoader().loadAsync('./assets/textures/shanghai_riverside_4k.hdr');photographedEnvironment=pmrem.fromEquirectangular(hdr);hdr.dispose();scene.environment=photographedEnvironment.texture;scene.environmentIntensity=.65;
+  // Procedural sky environment avoids a 25 MB blocking HDR download on first visit.
+  scene.environmentIntensity=.65;
   const bindings=await fetch('./assets/material-bindings.json').then(r=>r.json());
   const textureCache=new Map();
   for(const binding of bindings){
@@ -103,8 +107,8 @@ async function init(){
   }
   manifest=await fetch('./assets/manifest.json').then(r=>{if(!r.ok)throw Error('manifest');return r.json()});manifest.colliders.forEach(addCollider);manifest.trees.forEach(t=>{const r=Math.max(.18,.22*Math.max(t.s[0],t.s[2]));addCollider({name:'tree trunk',min:[t.p[0]-r,t.p[1],t.p[2]-r],max:[t.p[0]+r,t.p[1]+4,t.p[2]+r]});});addCollider({min:[-36,0,-36],max:[36,14,36]});
   // Ground arrives first; fixed small concurrency avoids flooding disk/network requests.
-  const queue=[...manifest.tiles].sort((a,b)=>a.id==='ground'?-1:b.id==='ground'?1:0);
-  async function worker(){while(queue.length){const tile=queue.shift();const gltf=await loader.loadAsync('./assets/'+tile.file);gltf.scene.name=tile.id;gltf.scene.updateMatrixWorld(true);gltf.scene.traverse(o=>{if(o.isMesh){if(/道路|铺装|城市地表|草地|滨江浅灰|步行桥面|桥接台阶/.test(o.material?.name))walkSurfaces.push(o);o.castShadow=false;o.receiveShadow=true;if(!/道路|铺装|城市地表|草地|滨江浅灰|步行桥面|桥接台阶|黄浦江|标线|踏面/.test(o.material?.name||'') ){const box=new THREE.Box3().setFromObject(o);if(box.max.y-box.min.y>.8 && o.geometry.attributes.position.count<1500)solidMeshes.push({mesh:o,box});}if(scannedMaterials.has(o.material?.name))o.material=scannedMaterials.get(o.material.name);for(const m of Array.isArray(o.material)?o.material:[o.material]){m.side=THREE.DoubleSide;if(/标线/.test(m.name)){m.polygonOffset=true;m.polygonOffsetFactor=-1;m.polygonOffsetUnits=-1;}if(/框|金属|银灰结构/.test(m.name)){m.roughness=Math.max(m.roughness,.48);o.castShadow=false}}if(o.material?.name?.includes('黄浦江'))installRiver(o)}});scene.add(gltf.scene);cityTiles.push({scene:gltf.scene,center:tile.center});tilesLoaded++;$('bar').style.width=tilesLoaded/manifest.tiles.length*100+'%';$('percent').textContent=tilesLoaded+' / '+manifest.tiles.length;}}
+  const queue=[...manifest.tiles].sort((a,b)=>a.id==='ground'?-1:b.id==='ground'?1:(Math.hypot(...[a.center[0]-350,a.center[2]-250])-Math.hypot(...[b.center[0]-350,b.center[2]-250])));
+  async function worker(){while(queue.length){const tile=queue.shift();const gltf=await loader.loadAsync('./assets/'+tile.file);gltf.scene.name=tile.id;gltf.scene.updateMatrixWorld(true);gltf.scene.traverse(o=>{if(o.isMesh){if(/道路|铺装|城市地表|草地|滨江浅灰|步行桥面|桥接台阶/.test(o.material?.name))walkSurfaces.push(o);o.castShadow=false;o.receiveShadow=true;if(!/道路|铺装|城市地表|草地|滨江浅灰|步行桥面|桥接台阶|黄浦江|标线|踏面/.test(o.material?.name||'') ){const box=new THREE.Box3().setFromObject(o);if(box.max.y-box.min.y>.8 && o.geometry.attributes.position.count<1500)solidMeshes.push({mesh:o,box});}if(scannedMaterials.has(o.material?.name))o.material=scannedMaterials.get(o.material.name);for(const m of Array.isArray(o.material)?o.material:[o.material]){m.side=THREE.DoubleSide;if(/标线/.test(m.name)){m.polygonOffset=true;m.polygonOffsetFactor=-1;m.polygonOffsetUnits=-1;}if(/框|金属|银灰结构/.test(m.name)){m.roughness=Math.max(m.roughness,.48);o.castShadow=false}}if(o.material?.name?.includes('黄浦江'))installRiver(o)}});gltf.scene.traverse(architecture.apply);scene.add(gltf.scene);cityTiles.push({scene:gltf.scene,center:tile.center,landmark:new THREE.Box3().setFromObject(gltf.scene).max.y>180});tilesLoaded++;$('bar').style.width=tilesLoaded/manifest.tiles.length*100+'%';$('percent').textContent=tilesLoaded+' / '+manifest.tiles.length;}}
   await Promise.all(Array.from({length:4},worker));
   const [farTree,nearTree]=await Promise.all(['tree.glb','tree_near.glb'].map(file=>loader.loadAsync('./assets/'+file)));
   for(const [model,near] of [[farTree,false],[nearTree,true]]){model.scene.updateMatrixWorld(true);model.scene.traverse(o=>{if(!o.isMesh)return;for(const m of Array.isArray(o.material)?o.material:[o.material]){if(m.name.includes('leaves')){m.transparent=false;m.alphaTest=.45;m.depthWrite=true;m.side=THREE.DoubleSide;m.roughness=.9;}}const geometry=o.geometry.clone();geometry.applyMatrix4(o.matrixWorld);const inst=new THREE.InstancedMesh(geometry,o.material,manifest.trees.length);inst.count=0;inst.frustumCulled=false;inst.receiveShadow=true;scene.add(inst);treeLOD.push({inst,near});});}
@@ -168,11 +172,9 @@ function tick(){
   camera.position.y=Math.max(2.6,camera.position.y);camera.position.x=THREE.MathUtils.clamp(camera.position.x,-2400,2300);camera.position.z=THREE.MathUtils.clamp(camera.position.z,-1500,2200);
  }
  for(const water of waterBodies){water.material.uniforms.time.value+=dt*.22;water.material.uniforms.sunDirection.value.copy(sun.position).normalize();}
- if(mode==='walk')renderer.shadowMap.needsUpdate=true;renderer.render(scene,camera);frames++;elapsed+=dt;mapTimer+=dt;
+ if(waterNormal)waterNormal.offset.x+=dt*.008;if(mode==='walk'&&high)renderer.shadowMap.needsUpdate=true;renderer.render(scene,camera);frames++;elapsed+=dt;mapTimer+=dt;
  if(elapsed>1){fps=Math.round(frames/elapsed);$('status').textContent=(loaded?(mode==='walk'?'步行':mode==='fly'?'飞行':'俯瞰')+' · '+Math.round(camera.position.y)+' m · '+fps+' FPS':'加载城市 '+tilesLoaded+' / 54');frames=0;elapsed=0;window.__cityStats={fps,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,position:camera.position.toArray(),mode,collisionHits,tilesLoaded};}
- if(mapTimer>.15){drawMap();for(const tile of cityTiles)tile.scene.visible=!tile.center||((camera.position.x-tile.center[0])**2+(camera.position.z-tile.center[2])**2<850**2);mapTimer=0}requestAnimationFrame(tick);
+ if(mapTimer>.15){drawMap();for(const tile of cityTiles)tile.scene.visible=tile.landmark||!tile.center||((camera.position.x-tile.center[0])**2+(camera.position.z-tile.center[2])**2<(mode==='orbit'?2400:850)**2);mapTimer=0}requestAnimationFrame(tick);
 }
 window.__cityTest={teleport:(x,y,z,angle)=>{avatar.root.position.set(x,y,z);yaw=angle;pitch=-.18;upVelocity=0;followCamera(1);},floorAt,getAvatar:()=>avatar?{name:avatar.name,height:avatar.height,floor:playerFloor,sourceHeight:avatar.sourceHeight,animation:avatar.state,position:avatar.root.position.toArray(),rotation:avatar.root.rotation.y}:null,setMode,preset,blocked,getCamera:()=>camera.position.toArray(),keyDown:k=>keys.add(k),keyUp:k=>keys.delete(k)};
 init();tick();
-
-

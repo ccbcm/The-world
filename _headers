@@ -10,3 +10,6 @@
 /character.js
   Cache-Control: public, max-age=0, must-revalidate
 
+
+/architecture.js
+  Cache-Control: public, max-age=0, must-revalidate
