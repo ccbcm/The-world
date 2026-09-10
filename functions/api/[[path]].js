@@ -17,6 +17,7 @@ export async function onRequest({request,env}) {
   if(!ready)return json({error:'GitHub 登录正在配置，请稍后再来。'},503);
   if(url.origin!==ORIGIN)return json({error:'请在 ccbcm.net 使用账号功能。'},403);
   if(request.method!=='GET'&&request.headers.get('Origin')!==ORIGIN)return json({error:'请求来源不符。'},403);
+  let stage="session";
   try {
     if(path==='/api/auth/github'&&request.method==='GET') {
       const state=random();const auth=new URL('https://github.com/login/oauth/authorize');auth.searchParams.set('client_id',env.GITHUB_CLIENT_ID);auth.searchParams.set('redirect_uri',ORIGIN+'/api/auth/callback');auth.searchParams.set('state',state);
@@ -25,10 +26,13 @@ export async function onRequest({request,env}) {
     if(path==='/api/auth/callback'&&request.method==='GET') {
       const state=cookies(request)['__Host-ccbcm-state'];
       if(!state||!/^[a-f0-9]{64}$/.test(state)||state!==url.searchParams.get('state')||!url.searchParams.get('code'))return redirect(ORIGIN+'/?login=failed#downloads',[cookie('__Host-ccbcm-state','',0)]);
+      stage='token_exchange';
       const response=await fetch('https://github.com/login/oauth/access_token',{method:'POST',headers:{'Accept':'application/json','Content-Type':'application/json'},body:JSON.stringify({client_id:env.GITHUB_CLIENT_ID,client_secret:env.GITHUB_CLIENT_SECRET,code:url.searchParams.get('code'),redirect_uri:ORIGIN+'/api/auth/callback'})});
-      const token=await response.json();if(!response.ok||!token.access_token)throw Error('OAuth failed');
+      const token=await response.json();if(!response.ok||!token.access_token)throw Error(['bad_verification_code','incorrect_client_credentials','redirect_uri_mismatch'].includes(token.error)?token.error:'token_exchange_failed');
+      stage='profile';
       const profile=await fetch('https://api.github.com/user',{headers:{'Authorization':'Bearer '+token.access_token,'User-Agent':'CCBCM','Accept':'application/vnd.github+json'}});
       const user=await profile.json();if(!profile.ok||!Number.isSafeInteger(user.id)||typeof user.login!=='string')throw Error('Profile failed');
+      stage='database';
       const session=random();await env.DB.batch([
         env.DB.prepare('INSERT INTO users(id,login,name,created_at) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET login=excluded.login,name=excluded.name').bind(String(user.id),user.login,user.name||user.login,Date.now()),
         env.DB.prepare('DELETE FROM sessions WHERE expires_at<?').bind(Date.now()),
@@ -52,5 +56,5 @@ export async function onRequest({request,env}) {
       await env.DB.prepare('INSERT INTO downloads(user_id,work_id,created_at) VALUES(?,?,?) ON CONFLICT(user_id,work_id) DO NOTHING').bind(user.id,id,Date.now()).run();return json({ok:true});
     }
     return json({error:'找不到这个操作。'},404);
-  }catch{return json({error:'账号服务暂时不可用，请稍后重试。'},503);}
+  }catch(error){const reason=['bad_verification_code','incorrect_client_credentials','redirect_uri_mismatch','token_exchange_failed'].includes(error.message)?error.message:stage;console.error('CCBCM_AUTH_FAILURE',reason);return json({error:'登录暂时未完成，请从网站重新发起登录。',code:reason},503);}
 }
