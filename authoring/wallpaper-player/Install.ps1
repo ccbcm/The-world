@@ -1,4 +1,4 @@
-$ErrorActionPreference='Stop'
+﻿$ErrorActionPreference='Stop'
 $target=Join-Path $env:LOCALAPPDATA 'Programs\CCBCMWallpaper'
 New-Item -ItemType Directory -Force -Path $target | Out-Null
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'CCBCMWallpaper.exe') -Destination $target -Force
@@ -16,7 +16,7 @@ New-ItemProperty -Path "$classes\.ccbwall\OpenWithProgids" -Name 'CCBCM.Wallpape
 if(-not (Get-Item "$classes\.ccbwall").GetValue('')) { Set-Item "$classes\.ccbwall" -Value 'CCBCM.Wallpaper' }
 $shell=New-Object -ComObject WScript.Shell
 foreach($folder in @([Environment]::GetFolderPath('Desktop'),[Environment]::GetFolderPath('Programs'))) {
-  $link=$shell.CreateShortcut((Join-Path $folder 'CCBCM Wallpaper.lnk'))
+  $link=$shell.CreateShortcut((Join-Path $folder 'CCBCM 动态壁纸.lnk'))
   $link.TargetPath=$exe
   $link.Arguments='--settings'
   $link.WorkingDirectory=$target
