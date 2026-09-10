@@ -7,7 +7,7 @@ const root = path.resolve(scriptDir, "../..");
 const output = path.join(root, "dist");
 
 const files = ["index.html", "city.html", "main.js", "character.js", "architecture.js", "_headers"];
-const directories = ["assets", "vendor", "licenses", "gallery"];
+const directories = ["assets", "vendor", "licenses", "gallery", "downloads"];
 
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
