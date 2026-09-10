@@ -27,7 +27,7 @@ export async function onRequest({request,env}) {
       const state=cookies(request)['__Host-ccbcm-state'];
       if(!state||!/^[a-f0-9]{64}$/.test(state)||state!==url.searchParams.get('state')||!url.searchParams.get('code'))return redirect(ORIGIN+'/?login=failed#downloads',[cookie('__Host-ccbcm-state','',0)]);
       stage='token_exchange';
-      const response=await fetch('https://github.com/login/oauth/access_token',{method:'POST',headers:{'Accept':'application/json','Content-Type':'application/json'},body:JSON.stringify({client_id:env.GITHUB_CLIENT_ID,client_secret:env.GITHUB_CLIENT_SECRET,code:url.searchParams.get('code'),redirect_uri:ORIGIN+'/api/auth/callback'})});
+      const response=await fetch('https://github.com/login/oauth/access_token',{method:'POST',headers:{'Accept':'application/json','Content-Type':'application/json'},body:JSON.stringify({client_id:env.GITHUB_CLIENT_ID.trim(),client_secret:env.GITHUB_CLIENT_SECRET.trim(),code:url.searchParams.get('code'),redirect_uri:ORIGIN+'/api/auth/callback'})});
       const token=await response.json();if(!response.ok||!token.access_token)throw Error(['bad_verification_code','incorrect_client_credentials','redirect_uri_mismatch'].includes(token.error)?token.error:'token_exchange_failed');
       stage='profile';
       const profile=await fetch('https://api.github.com/user',{headers:{'Authorization':'Bearer '+token.access_token,'User-Agent':'CCBCM','Accept':'application/vnd.github+json'}});
