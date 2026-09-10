@@ -1,0 +1,8 @@
+{
+  "resumedPixelDifference": 186,
+  "pausedPixelDifference": 0,
+  "motionPixelDifference": 332,
+  "startupEnabled": false,
+  "processCount": 1,
+  "longPauseReleaseAndRecovery": true
+}
