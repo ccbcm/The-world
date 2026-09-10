@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.IO.Pipes;
 using System.Diagnostics;
@@ -73,7 +73,7 @@ namespace Ccbcm {
   [STAThread] public static void Main(string[] args){
    bool created;using(var mutex=new Mutex(true,"Local\\"+Pipe,out created)){
     string arg=args.Length>0?args[0]:"--settings";
-    if(arg.StartsWith("ccbcm-wallpaper:",StringComparison.OrdinalIgnoreCase))arg="--settings";
+    if(arg.Equals("ccbcm-wallpaper://apply/blue",StringComparison.OrdinalIgnoreCase))arg=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"demo.mp4");else if(arg.StartsWith("ccbcm-wallpaper:",StringComparison.OrdinalIgnoreCase))arg="--settings";
     if(!created){try{using(var client=new NamedPipeClientStream(".",Pipe,PipeDirection.Out)){client.Connect(1800);using(var w=new BinaryWriter(client)){w.Write(arg);}}}catch(Exception e){Forms.MessageBox.Show("壁纸组件暂时没有响应，请稍后再试。\n"+e.Message,"CCBCM");}return;}
     if(arg=="--exit")return;
     try{var app=new Player();app.desktopTest=arg=="--desktop-test";app.test=arg=="--test"||app.desktopTest;app.Startup+=delegate{app.Init(app.test?(args.Length>1?args[1]:""):arg);};app.Run();}catch(Exception e){Log(e.ToString());Forms.MessageBox.Show(e.Message,"CCBCM 壁纸");}
@@ -118,17 +118,15 @@ namespace Ccbcm {
   }
   void Session(object s,SessionSwitchEventArgs e){Dispatcher.BeginInvoke(new Action(delegate{if(e.Reason==SessionSwitchReason.SessionLock)locked=true;if(e.Reason==SessionSwitchReason.SessionUnlock)locked=false;Update();}));}
   void Display(object s,EventArgs e){Dispatcher.BeginInvoke(new Action(delegate{if(path!="")try{Attach();}catch{media.Pause();wallpaper.Hide();}}));}
-  void Pick(){var f=new OpenFileDialog{Title="选一段喜欢的视频",Filter="视频与壁纸|*.mp4;*.m4v;*.wmv;*.ccbwall"};if(f.ShowDialog()==true)Open(f.FileName);}
+  void Pick(){Process.Start(new ProcessStartInfo("https://ccbcm.net/#downloads"){UseShellExecute=true});}
   bool StartupEnabled(){using(var k=Registry.CurrentUser.OpenSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Run")){return k!=null&&k.GetValue("CCBCM Wallpaper")!=null;}}
   void StartupSet(bool enabled){using(var k=Registry.CurrentUser.CreateSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Run")){if(enabled)k.SetValue("CCBCM Wallpaper","\""+Process.GetCurrentProcess().MainModule.FileName+"\" --background");else k.DeleteValue("CCBCM Wallpaper",false);}}
 
   void Website(){Process.Start(new ProcessStartInfo("https://ccbcm.net/#wallpapers"){UseShellExecute=true});}
   Button ActionButton(string text,Action action){var b=new Button{Content=text,Padding=new Thickness(14,11,14,11),Margin=new Thickness(0,0,0,10),Background=new SolidColorBrush(Color.FromRgb(211,194,247)),Foreground=new SolidColorBrush(Color.FromRgb(35,30,47)),BorderThickness=new Thickness(0)};var border=new FrameworkElementFactory(typeof(Border));border.SetValue(Border.CornerRadiusProperty,new CornerRadius(15));border.SetBinding(Border.BackgroundProperty,new System.Windows.Data.Binding("Background"){RelativeSource=new System.Windows.Data.RelativeSource(System.Windows.Data.RelativeSourceMode.TemplatedParent)});var content=new FrameworkElementFactory(typeof(ContentPresenter));content.SetValue(FrameworkElement.MarginProperty,new Thickness(14,11,14,11));content.SetValue(FrameworkElement.HorizontalAlignmentProperty,HorizontalAlignment.Center);border.AppendChild(content);b.Template=new ControlTemplate(typeof(Button)){VisualTree=border};b.Click+=delegate{action();};return b;}
-  void ShowSettings(){if(settingsWindow!=null){settingsWindow.WindowState=WindowState.Normal;settingsWindow.Activate();return;}settingsWindow=new Window{Title="CCBCM 动态壁纸",Width=490,Height=650,ResizeMode=ResizeMode.CanMinimize,WindowStartupLocation=WindowStartupLocation.CenterScreen,Background=new SolidColorBrush(Color.FromRgb(27,27,34)),Foreground=Brushes.White};var panel=new StackPanel{Margin=new Thickness(28)};panel.Children.Add(new TextBlock{Text="CCBCM 动态壁纸",FontSize=25,Margin=new Thickness(0,0,0,14)});status=new TextBlock{Text="还没有选择动态壁纸",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,0,0,18)};panel.Children.Add(status);
-   panel.Children.Add(ActionButton("添加动态壁纸（MP4 视频）",Pick));
-   panel.Children.Add(ActionButton("播放试看 30 秒",delegate{if(path==""){Pick();return;}manual=false;previewUntil=DateTime.UtcNow.AddSeconds(30);Update();}));
+  void ShowSettings(){if(settingsWindow!=null){settingsWindow.WindowState=WindowState.Normal;settingsWindow.Activate();return;}settingsWindow=new Window{Title="CCBCM 动态壁纸",Width=530,Height=530,ResizeMode=ResizeMode.CanMinimize,WindowStartupLocation=WindowStartupLocation.CenterScreen,Background=new SolidColorBrush(Color.FromRgb(27,27,34)),Foreground=Brushes.White};var panel=new StackPanel{Margin=new Thickness(28)};var heading=new StackPanel{Orientation=Orientation.Horizontal,Margin=new Thickness(0,0,0,14)};heading.Children.Add(new TextBlock{Text="CCBCM 动态壁纸",FontSize=25});var site=new Button{Content="ccbcm.net ↗",Background=Brushes.Transparent,Foreground=Brushes.LightSteelBlue,BorderThickness=new Thickness(0),Margin=new Thickness(15,0,0,0)};site.Click+=delegate{Website();};heading.Children.Add(site);panel.Children.Add(heading);status=new TextBlock{Text="还没有选择动态壁纸",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,0,0,18)};panel.Children.Add(status);
+   panel.Children.Add(ActionButton("添加动态壁纸",Pick));
    panel.Children.Add(ActionButton("暂停 / 继续",delegate{manual=!manual;Update();}));
-   panel.Children.Add(ActionButton("打开官网 · 找壁纸",Website));
    AddCheck(panel,"开机时自动播放",StartupEnabled(),StartupSet);AddCheck(panel,"桌面被遮住时暂停",config.PauseCovered,delegate(bool b){config.PauseCovered=b;Save();Update();});AddCheck(panel,"使用电池时暂停",config.PauseBattery,delegate(bool b){config.PauseBattery=b;Save();Update();});
    panel.Children.Add(new TextBlock{Text="关闭窗口后仍在托盘运行。\n随时从桌面的「CCBCM 动态壁纸」、开始菜单，\n或右下角托盘图标重新打开。",TextWrapping=TextWrapping.Wrap,Foreground=Brushes.LightGray,Margin=new Thickness(0,14,0,14)});
    panel.Children.Add(ActionButton("完全退出 · 恢复原壁纸",delegate{Shutdown();}));settingsWindow.Content=new ScrollViewer{Content=panel,VerticalScrollBarVisibility=ScrollBarVisibility.Auto};settingsWindow.Closed+=delegate{settingsWindow=null;status=null;if(tray!=null){tray.BalloonTipTitle="CCBCM 仍在运行";tray.BalloonTipText="点击桌面的 CCBCM 动态壁纸，或右下角托盘图标，可以再次打开。";tray.ShowBalloonTip(4000);}};settingsWindow.Show();Update();}

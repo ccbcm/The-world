@@ -1,0 +1,8 @@
+{
+  "name": "ccbcm",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-09-07",
+  "d1_databases": [
+    { "binding": "DB", "database_name": "ccbcm-accounts", "database_id": "b1b0c5a5-cd82-486a-a67d-a7c15ae06b88" }
+  ]
+}
