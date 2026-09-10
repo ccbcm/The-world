@@ -56,5 +56,5 @@ export async function onRequest({request,env}) {
       await env.DB.prepare('INSERT INTO downloads(user_id,work_id,created_at) VALUES(?,?,?) ON CONFLICT(user_id,work_id) DO NOTHING').bind(user.id,id,Date.now()).run();return json({ok:true});
     }
     return json({error:'找不到这个操作。'},404);
-  }catch(error){const reason=['bad_verification_code','incorrect_client_credentials','redirect_uri_mismatch','token_exchange_failed'].includes(error.message)?error.message:stage;console.error('CCBCM_AUTH_FAILURE',reason);return json({error:'登录暂时未完成，请从网站重新发起登录。',code:reason},503);}
+  }catch(error){const reason=['bad_verification_code','incorrect_client_credentials','redirect_uri_mismatch','token_exchange_failed'].includes(error.message)?error.message:stage;console.error('CCBCM_AUTH_FAILURE',reason);if(path==='/api/auth/callback')return redirect(ORIGIN+'/?login=failed&reason='+reason+'#downloads',[cookie('__Host-ccbcm-state','',0)]);return json({error:'登录暂时未完成，请从网站重新发起登录。',code:reason},503);}
 }
