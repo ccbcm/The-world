@@ -63,6 +63,11 @@ export async function onRequest({request,env}) {
       await spaces(env.DB);return json({profile:await profileFor(env.DB,person)});
     }
     const user=await current(request,env.DB);if(!user)return json({error:'请先登录 GitHub。'},401);
+    if(path==='/api/storage'&&request.method==='GET') {
+      if(!env.CREATOR_ASSETS)return json({ready:false},503);
+      try{await env.CREATOR_ASSETS.head('__connection_check__');return json({ready:true});}
+      catch{return json({error:'文件存储暂时不可用。'},503);}
+    }
     if(path==='/api/drafts') {
       await env.DB.prepare('CREATE TABLE IF NOT EXISTS drafts (id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),title TEXT NOT NULL,description TEXT NOT NULL,updated_at INTEGER NOT NULL)').bind().run();
       if(request.method==='GET')return json({items:(await env.DB.prepare('SELECT id,title,description,updated_at FROM drafts WHERE user_id=? ORDER BY updated_at DESC').bind(user.id).all()).results});

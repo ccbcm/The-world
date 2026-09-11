@@ -2,8 +2,20 @@
   "name": "ccbcm",
   "pages_build_output_dir": "./dist",
   "compatibility_date": "2026-09-07",
-  "vars": { "GITHUB_CLIENT_ID": "Ov23litRDAHx6Wwpw3oI" },
+  "vars": {
+    "GITHUB_CLIENT_ID": "Ov23litRDAHx6Wwpw3oI"
+  },
   "d1_databases": [
-    { "binding": "DB", "database_name": "ccbcm-accounts", "database_id": "b1b0c5a5-cd82-486a-a67d-a7c15ae06b88" }
+    {
+      "binding": "DB",
+      "database_name": "ccbcm-accounts",
+      "database_id": "b1b0c5a5-cd82-486a-a67d-a7c15ae06b88"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "CREATOR_ASSETS",
+      "bucket_name": "ccbcm-creator-assets"
+    }
   ]
 }
