@@ -3,6 +3,7 @@
   "pages_build_output_dir": "./dist",
   "compatibility_date": "2026-09-07",
   "vars": {
+    "ADMIN_GITHUB_ID": "325610429",
     "GITHUB_CLIENT_ID": "Ov23litRDAHx6Wwpw3oI"
   },
   "d1_databases": [

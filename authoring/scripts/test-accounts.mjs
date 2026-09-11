@@ -6,6 +6,7 @@ const source=readFileSync(new URL('../../functions/api/[[path]].js',import.meta.
 const {onRequest}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const sql=new DatabaseSync(':memory:');sql.exec(readFileSync(new URL('./account-schema.sql',import.meta.url),'utf8'));
 const DB={prepare(query){return {bind(...args){const q=sql.prepare(query);return {first:async()=>q.get(...args),all:async()=>({results:q.all(...args)}),run:async()=>q.run(...args)};}};}};
+DB.batch=async statements=>{sql.exec('BEGIN');try{const results=[];for(const st of statements)results.push(await st.run());sql.exec('COMMIT');return results;}catch(e){sql.exec('ROLLBACK');throw e;}};
 const env={DB,GITHUB_CLIENT_ID:'test',GITHUB_CLIENT_SECRET:'test'};
 const digest=s=>createHash('sha256').update(s).digest('hex');
 for(const [id,token] of [['alice','a'.repeat(64)],['bob','b'.repeat(64)]]){sql.prepare('INSERT INTO users VALUES(?,?,?,?)').run(id,id,id,Date.now());sql.prepare('INSERT INTO sessions VALUES(?,?,?)').run(digest(token),id,Date.now()+60000);}
@@ -81,6 +82,26 @@ const streamed=await req('videos/'+vid+'/content','GET',A);assert.equal(streamed
 const partial=await onRequest({env,request:new Request('https://ccbcm.net/api/videos/'+vid+'/content',{headers:{Cookie:'__Host-ccbcm-session='+A,Range:'bytes=0-99'}})});assert.equal(partial.status,206);assert.equal((await partial.arrayBuffer()).byteLength,100);
 assert.equal((await req('videos/'+vid+'/submit','POST',A)).status,200);
 assert.equal((await req('videos/'+vid,'PATCH',A,{title:'修改',description:''})).status,409);
+
+assert.equal((await req('moderation')).status,401);
+assert.equal((await req('moderation','GET',B)).status,403);
+env.ADMIN_GITHUB_ID='bob';
+assert.equal((await (await req('account','GET',B)).json()).reviewer,true);
+assert.equal((await (await req('account','GET',A)).json()).reviewer,false);
+assert.equal((await (await req('moderation','GET',B)).json()).items.length,1);
+assert.equal((await req('moderation/'+vid+'/content','GET',B)).status,200);
+assert.equal((await req('moderation/'+vid,'POST',A,{decision:'approve',reason:''})).status,403);
+assert.equal((await req('moderation/'+vid,'POST',B,{decision:'reject',reason:''})).status,400);
+assert.equal((await req('moderation/'+vid,'POST',B,{decision:'reject',reason:'请补充简介'})).status,200);
+assert.equal((await (await req('videos','GET',A)).json()).items[0].review_reason,'请补充简介');
+assert.equal((await req('videos/'+vid+'/submit','POST',A)).status,200);
+assert.equal((await req('moderation/'+vid,'POST',B,{decision:'approve',reason:''},'https://evil.example')).status,403);
+assert.equal((await req('moderation/'+vid,'POST',B,{decision:'approve',reason:''})).status,200);
+assert.equal((await req('moderation/'+vid,'POST',B,{decision:'reject',reason:'重复'})).status,409);
+assert.equal((await (await req('videos','GET',A)).json()).items[0].state,'approved');
+assert.equal((await req('videos/'+vid,'PATCH',A,{title:'绕过审核',description:''})).status,409);
+assert.equal((await req('videos/'+vid+'/content','GET',A)).status,200);
+assert.equal((await req('videos/'+vid+'/content')).status,401);
 assert.equal((await req('videos/'+vid,'DELETE',B)).status,404);
 assert.equal((await req('videos/'+vid,'DELETE',A)).status,200);assert.equal(objects.size,0);
 assert.equal(sql.prepare('SELECT n FROM video_upload_daily WHERE user_id=?').get('alice').n,1);
