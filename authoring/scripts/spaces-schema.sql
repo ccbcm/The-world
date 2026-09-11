@@ -12,3 +12,5 @@ CREATE TABLE IF NOT EXISTS favorites (
   created_at INTEGER NOT NULL,
   PRIMARY KEY(user_id,work_id)
 );
+CREATE TABLE IF NOT EXISTS avatars (user_id TEXT PRIMARY KEY REFERENCES users(id), image TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS drafts (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), title TEXT NOT NULL, description TEXT NOT NULL, updated_at INTEGER NOT NULL);
