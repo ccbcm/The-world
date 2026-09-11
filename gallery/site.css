@@ -25,3 +25,5 @@
 .video-work textarea{resize:none;overflow:hidden;min-height:90px}
 
 .account-menu nav [hidden]{display:none}#review-body .video-work>h2,#review-body .video-work>p,#review-body .video-work>a{margin:16px 24px;display:block;overflow-wrap:anywhere}
+
+.video-copy{padding:24px;min-width:0;overflow-wrap:anywhere}.video-copy>h2,.video-copy>h3{margin:0 0 12px}.video-copy>p{line-height:1.7;margin:14px 0}.video-copy>form{padding:18px 0 0}.video-work video{display:block}.download-info,.draft-card{overflow-wrap:anywhere}@media(max-width:700px){.video-copy{padding:20px}}

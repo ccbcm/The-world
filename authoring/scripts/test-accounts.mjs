@@ -102,6 +102,20 @@ assert.equal((await (await req('videos','GET',A)).json()).items[0].state,'approv
 assert.equal((await req('videos/'+vid,'PATCH',A,{title:'绕过审核',description:''})).status,409);
 assert.equal((await req('videos/'+vid+'/content','GET',A)).status,200);
 assert.equal((await req('videos/'+vid+'/content')).status,401);
+
+assert.equal((await (await req('published-videos')).json()).items.length,0);
+assert.equal((await req('published-videos/'+vid+'/content')).status,404);
+assert.equal((await req('videos/'+vid+'/publish','POST',B)).status,404);
+assert.equal((await req('videos/'+vid+'/publish','POST',A)).status,200);
+assert.equal((await (await req('published-videos')).json()).items.length,1);
+assert.equal((await req('published-videos/'+vid+'/content')).status,200);
+assert.equal((await req('downloads','POST',B,{id:vid})).status,200);
+assert.equal((await req('favorites','POST',B,{id:vid})).status,200);
+assert.equal((await req('videos/'+vid,'PATCH',A,{title:'不能直接修改',description:''})).status,409);
+assert.equal((await req('videos/'+vid+'/unlist','POST',A)).status,200);
+assert.equal((await req('published-videos/'+vid+'/content')).status,404);
+assert.equal((await req('videos/'+vid+'/publish','POST',A)).status,409);
+assert.equal((await req('videos/'+vid+'/submit','POST',A)).status,200);
 assert.equal((await req('videos/'+vid,'DELETE',B)).status,404);
 assert.equal((await req('videos/'+vid,'DELETE',A)).status,200);assert.equal(objects.size,0);
 assert.equal(sql.prepare('SELECT n FROM video_upload_daily WHERE user_id=?').get('alice').n,1);

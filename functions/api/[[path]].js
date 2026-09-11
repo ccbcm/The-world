@@ -23,12 +23,13 @@ async function bodyJSON(request) {
   try{const value=JSON.parse(text);return value&&typeof value==='object'&&!Array.isArray(value)?value:null}catch{return null}
 }
 const VIDEO_MAX=25*1024*1024, USER_VIDEO_MAX=250*1024*1024, SITE_VIDEO_MAX=8*1024*1024*1024;
+async function isPublished(db,id){if(typeof id!=='string'||!/^[a-f0-9]{64}$/.test(id))return false;await videoTable(db);return !!await db.prepare("SELECT id FROM creator_videos WHERE id=? AND state='published'").bind(id).first();}
 const isReviewer=(env,user)=>!!user&&!!env.ADMIN_GITHUB_ID&&String(user.id)===String(env.ADMIN_GITHUB_ID);
 async function reviewTable(db){await db.prepare("CREATE TABLE IF NOT EXISTS video_reviews (video_id TEXT PRIMARY KEY, decision TEXT NOT NULL, reason TEXT NOT NULL, reviewer_id TEXT NOT NULL, reviewed_at INTEGER NOT NULL)").bind().run();}
 async function moderation(request,env,user,path){
  if(!isReviewer(env,user))return json({error:'只有网站管理员可以审核作品。'},403);
  await videoTable(env.DB);await reviewTable(env.DB);const db=env.DB;
- if(path==='/api/moderation'&&request.method==='GET')return json({items:(await db.prepare("SELECT v.id,v.title,v.description,v.poster,v.size,v.state,v.updated_at,u.login,r.reason,r.decision FROM creator_videos v JOIN users u ON u.id=v.user_id LEFT JOIN video_reviews r ON r.video_id=v.id WHERE v.state IN ('review','approved','ready') AND (v.state!='ready' OR r.video_id IS NOT NULL) ORDER BY CASE WHEN v.state='review' THEN 0 ELSE 1 END,v.updated_at DESC").bind().all()).results});
+ if(path==='/api/moderation'&&request.method==='GET')return json({items:(await db.prepare("SELECT v.id,v.title,v.description,v.poster,v.size,v.state,v.updated_at,u.login,r.reason,r.decision FROM creator_videos v JOIN users u ON u.id=v.user_id LEFT JOIN video_reviews r ON r.video_id=v.id WHERE v.state IN ('review','approved','ready','published','unlisted') AND (v.state!='ready' OR r.video_id IS NOT NULL) ORDER BY CASE WHEN v.state='review' THEN 0 ELSE 1 END,v.updated_at DESC").bind().all()).results});
  const m=path.match(/^\/api\/moderation\/([a-f0-9]{64})(\/content)?$/);if(!m)return json({error:'找不到这件作品。'},404);
  const row=await db.prepare('SELECT * FROM creator_videos WHERE id=?').bind(m[1]).first();if(!row)return json({error:'找不到这件作品。'},404);
  if(m[2]&&request.method==='GET')return handleVideos(request,env,{id:row.user_id},'/api/videos/'+row.id+'/content');
@@ -74,10 +75,10 @@ async function handleVideos(request,env,user,path){
    if(!changed(result))return json({error:'当前上传额度不足：每人 250 MB、每天最多 20 次新上传，或全站容量已达上限。'},429);return json({id,state:'reserved'});
   }
  }
- const match=path.match(/^\/api\/videos\/([a-f0-9]{64})(?:\/(content|submit))?$/);if(!match)return json({error:'找不到这件作品。'},404);
+ const match=path.match(/^\/api\/videos\/([a-f0-9]{64})(?:\/(content|submit|publish|unlist))?$/);if(!match)return json({error:'找不到这件作品。'},404);
  const row=await db.prepare('SELECT * FROM creator_videos WHERE id=? AND user_id=?').bind(match[1],user.id).first();if(!row)return json({error:'找不到这件作品。'},404);const key='videos/'+row.user_id+'/'+row.id+'.mp4',action=match[2];
  if(action==='content'&&request.method==='PUT'){
-  if(['ready','review','approved'].includes(row.state))return json({ok:true,state:row.state});
+  if(['ready','review','approved','published','unlisted'].includes(row.state))return json({ok:true,state:row.state});
   const lock=await db.prepare("UPDATE creator_videos SET state='uploading',updated_at=? WHERE id=? AND (state IN ('reserved','failed') OR (state='uploading' AND updated_at<?))").bind(Date.now(),row.id,Date.now()-15*60000).run();if(!changed(lock))return json({error:'文件正在处理中，请稍后再试。'},409);
   try{
    if(request.headers.get('Content-Type')!=='video/mp4')throw Error('请选择 MP4 视频。');
@@ -89,20 +90,25 @@ async function handleVideos(request,env,user,path){
   }catch(e){await db.prepare("UPDATE creator_videos SET state='failed',updated_at=? WHERE id=?").bind(Date.now(),row.id).run();return json({error:e.message||'上传失败，请重试。'},400);}
  }
  if(action==='content'&&request.method==='GET'){
-  if(!['ready','review','approved'].includes(row.state))return json({error:'视频尚未上传完成。'},409);
+  if(!['ready','review','approved','published','unlisted'].includes(row.state))return json({error:'视频尚未上传完成。'},409);
   const range=request.headers.get('Range');let options={},start=0,end=row.size-1;
   if(range){const m=range.match(/^bytes=(\d*)-(\d*)$/);if(!m||!m[1]&&!m[2])return new Response(null,{status:416,headers:{'Content-Range':'bytes */'+row.size}});if(m[1]){start=Number(m[1]);end=m[2]?Math.min(Number(m[2]),end):end;}else start=Math.max(0,row.size-Number(m[2]));if(start>end||start>=row.size)return new Response(null,{status:416,headers:{'Content-Range':'bytes */'+row.size}});options={range:{offset:start,length:end-start+1}};}
   const object=await bucket.get(key,options);if(!object)return json({error:'视频暂时无法读取。'},404);
   const headers={'Content-Type':'video/mp4','Content-Length':String(end-start+1),'Accept-Ranges':'bytes','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'};if(range)headers['Content-Range']=`bytes ${start}-${end}/${row.size}`;return new Response(object.body,{status:range?206:200,headers});
  }
+ if(['publish','unlist'].includes(action)&&request.method==='POST'){
+ const from=action==='publish'?'approved':'published',to=action==='publish'?'published':'unlisted';
+ const result=await db.prepare('UPDATE creator_videos SET state=?,updated_at=? WHERE id=? AND user_id=? AND state=?').bind(to,Date.now(),row.id,user.id,from).run();
+ return changed(result)?json({ok:true,state:to}):json({error:'作品状态已改变，请刷新后再试。'},409);
+ }
  if(action==='submit'&&request.method==='POST'){
-  if(row.state!=='ready'&&row.state!=='review')return json({error:'请先完成视频上传。'},409);
-  const update=await db.prepare("UPDATE creator_videos SET state='review',updated_at=? WHERE id=? AND state IN ('ready','review')").bind(Date.now(),row.id).run();if(!changed(update))return json({error:'作品状态已改变，请刷新。'},409);return json({ok:true,state:'review'});
+  if(!['ready','review','unlisted'].includes(row.state))return json({error:'请先完成视频上传。'},409);
+  const update=await db.prepare("UPDATE creator_videos SET state='review',updated_at=? WHERE id=? AND state IN ('ready','review','unlisted')").bind(Date.now(),row.id).run();if(!changed(update))return json({error:'作品状态已改变，请刷新。'},409);return json({ok:true,state:'review'});
  }
  if(!action&&request.method==='PATCH'){
-  if(['review','approved'].includes(row.state))return json({error:'审核中的作品暂时不能修改。'},409);
+  if(['review','approved','published'].includes(row.state))return json({error:'审核中的作品暂时不能修改。'},409);
   const b=await videoJSON(request);if(!b||typeof b.title!=='string'||!b.title.trim()||b.title.length>100||typeof b.description!=='string'||b.description.length>1500)return json({error:'标题限 100 字，简介限 1500 字。'},400);
-  await db.prepare('UPDATE creator_videos SET title=?,description=?,updated_at=? WHERE id=? AND state NOT IN ("review","approved","deleting")').bind(b.title.trim(),b.description.trim(),Date.now(),row.id).run();return json({ok:true});
+  await db.prepare('UPDATE creator_videos SET title=?,description=?,updated_at=? WHERE id=? AND state NOT IN ("review","approved","published","deleting")').bind(b.title.trim(),b.description.trim(),Date.now(),row.id).run();return json({ok:true});
  }
  if(!action&&request.method==='DELETE'){
   if(row.state==='uploading')return json({error:'视频正在上传，请稍后再移除。'},409);
@@ -143,6 +149,15 @@ export async function onRequest({request,env}) {
         env.DB.prepare('INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,?)').bind(await hash(session),String(user.id),Date.now()+30*86400000)
       ]);
       return redirect(ORIGIN+'/#downloads',[cookie('__Host-ccbcm-state','',0),cookie('__Host-ccbcm-session',session,30*86400)]);
+    }
+    if(path==='/api/published-videos'&&request.method==='GET'){
+      await videoTable(env.DB);return json({items:(await env.DB.prepare("SELECT v.id,v.title,v.description,v.poster,v.size,u.login FROM creator_videos v JOIN users u ON u.id=v.user_id WHERE v.state='published' ORDER BY v.updated_at DESC").bind().all()).results});
+    }
+    const publicVideo=path.match(/^\/api\/published-videos\/([a-f0-9]{64})\/content$/);
+    if(publicVideo&&request.method==='GET'){
+      await videoTable(env.DB);const row=await env.DB.prepare("SELECT user_id FROM creator_videos WHERE id=? AND state='published'").bind(publicVideo[1]).first();
+      if(!row)return json({error:'作品尚未公开或已下架。'},404);
+      return await handleVideos(request,env,{id:row.user_id},'/api/videos/'+publicVideo[1]+'/content');
     }
     if(path.startsWith('/api/people/')&&request.method==='GET') {
       const login=path.slice('/api/people/'.length);
@@ -197,7 +212,7 @@ export async function onRequest({request,env}) {
         if(request.method==='GET')return json({items:(await env.DB.prepare('SELECT work_id AS id,created_at AS date FROM favorites WHERE user_id=? ORDER BY created_at DESC').bind(user.id).all()).results});
         if(['POST','DELETE'].includes(request.method)) {
           const b=await bodyJSON(request);
-          if(!b||(!ids.has(b.id)&&b.id!=='city'))return json({error:'找不到这件作品。'},400);
+          if(!b||(!ids.has(b.id)&&b.id!=='city'&&!await isPublished(env.DB,b.id)))return json({error:'找不到这件作品。'},400);
           if(request.method==='POST')await env.DB.prepare('INSERT INTO favorites(user_id,work_id,created_at) VALUES(?,?,?) ON CONFLICT(user_id,work_id) DO NOTHING').bind(user.id,b.id,Date.now()).run();
           else await env.DB.prepare('DELETE FROM favorites WHERE user_id=? AND work_id=?').bind(user.id,b.id).run();
           return json({ok:true});
@@ -215,7 +230,7 @@ export async function onRequest({request,env}) {
       if(!request.headers.get('Content-Type')?.startsWith('application/json'))return json({error:'无效请求。'},415);
       const body=await request.text();if(body.length>256)return json({error:'请求过大。'},413);
       let id;try{id=JSON.parse(body).id;}catch{return json({error:'无效请求。'},400);}
-      if(!ids.has(id))return json({error:'找不到这张壁纸。'},404);
+      if(!ids.has(id)&&!await isPublished(env.DB,id))return json({error:'找不到这张壁纸。'},404);
       await env.DB.prepare('INSERT INTO downloads(user_id,work_id,created_at) VALUES(?,?,?) ON CONFLICT(user_id,work_id) DO NOTHING').bind(user.id,id,Date.now()).run();return json({ok:true});
     }
     return json({error:'找不到这个操作。'},404);
