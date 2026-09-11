@@ -62,6 +62,30 @@ assert.equal((await req('drafts','POST',B,{id:draft.id,title:'覆盖',descriptio
 assert.equal((await req('drafts','POST',A,{id:draft.id,title:'已更新',description:''})).status,200);
 assert.equal((await (await req('drafts','GET',A)).json()).items.length,1);
 assert.equal((await req('drafts')).status,401);
+
+const objects=new Map();env.CREATOR_ASSETS={put:async(k,bytes)=>{objects.set(k,bytes);},get:async(k,options={})=>{const bytes=objects.get(k);if(!bytes)return null;return {body:options.range?bytes.slice(options.range.offset,options.range.offset+options.range.length):bytes};},delete:async k=>objects.delete(k)};
+const mp4=readFileSync(new URL('../../gallery/media/blue.mp4',import.meta.url));
+const meta={title:'视频测试',size:mp4.length,sha256:digest(mp4)};
+assert.equal((await req('videos')).status,401);
+assert.equal((await req('videos','POST',A,{...meta,size:26*1024*1024})).status,400);
+let reservation=await req('videos','POST',A,meta);assert.equal(reservation.status,200);const vid=(await reservation.json()).id;
+assert.equal((await (await req('videos','GET',B)).json()).items.length,0);
+assert.equal((await req('videos/'+vid,'PATCH',B,{title:'盗改',description:''})).status,404);
+async function upload(id,bytes=mp4,token=A){return onRequest({env,request:new Request('https://ccbcm.net/api/videos/'+id+'/content',{method:'PUT',headers:{Origin:'https://ccbcm.net','Content-Type':'video/mp4',Cookie:'__Host-ccbcm-session='+token},body:bytes})});}
+assert.equal((await upload(vid,mp4,B)).status,404);
+assert.equal((await upload(vid,mp4.subarray(0,100))).status,400);
+assert.equal((await (await req('videos','GET',A)).json()).items[0].state,'failed');
+assert.equal((await upload(vid)).status,200);assert.equal(objects.size,1);
+assert.equal((await upload(vid)).status,200);assert.equal(objects.size,1);
+const streamed=await req('videos/'+vid+'/content','GET',A);assert.equal(streamed.status,200);assert.equal(digest(Buffer.from(await streamed.arrayBuffer())),meta.sha256);
+const partial=await onRequest({env,request:new Request('https://ccbcm.net/api/videos/'+vid+'/content',{headers:{Cookie:'__Host-ccbcm-session='+A,Range:'bytes=0-99'}})});assert.equal(partial.status,206);assert.equal((await partial.arrayBuffer()).byteLength,100);
+assert.equal((await req('videos/'+vid+'/submit','POST',A)).status,200);
+assert.equal((await req('videos/'+vid,'PATCH',A,{title:'修改',description:''})).status,409);
+assert.equal((await req('videos/'+vid,'DELETE',B)).status,404);
+assert.equal((await req('videos/'+vid,'DELETE',A)).status,200);assert.equal(objects.size,0);
+assert.equal(sql.prepare('SELECT n FROM video_upload_daily WHERE user_id=?').get('alice').n,1);
+sql.prepare('UPDATE video_upload_daily SET n=20 WHERE user_id=?').run('alice');assert.equal((await req('videos','POST',A,meta)).status,429);
+const invalid=Buffer.alloc(100);const bad=(await (await req('videos','POST',B,{title:'伪视频',size:100,sha256:digest(invalid)})).json()).id;assert.equal((await upload(bad,invalid,B)).status,400);assert.equal(objects.size,0);
 assert.equal((await req('logout','POST','a'.repeat(64))).status,200);
 assert.equal((await req('downloads','GET','a'.repeat(64))).status,401);
 const login=await req('auth/github');assert.equal(login.status,302);const auth=new URL(login.headers.get('Location'));assert.equal(auth.origin,'https://github.com');assert.equal(auth.searchParams.has('scope'),false);assert.ok(login.headers.get('Set-Cookie').includes('HttpOnly; Secure; SameSite=Lax'));
