@@ -54,7 +54,7 @@ async function renderPersonal(page){
  const titles={studio:'创作中心',me:'个人主页',settings:'账号设置'};
  app.innerHTML=`<section class="intro-line"><h1>${titles[page]}</h1></section><div id="personal-body">正在读取…</div>`;
  try{const a=await account();if(route!==page)return;const body=document.querySelector('#personal-body');if(!a.user){body.innerHTML=loginPanel(a.ready);return;}
- if(page==='studio'){body.innerHTML='<div class="empty"><h2>准备分享你的第一件作品</h2><p>上传与发布功能正在完善，还不能在这里上架作品。</p><p>下载和收藏不会作为你的作品发布。</p><a class="pill secondary" href="#me">查看个人主页</a></div>';return;}
+ if(page==='studio'){await renderDrafts(body);return;}
  const {profile:p}=await api('profile');if(route!==page)return;
  if(page==='me'){location.hash='people/'+p.login;return;}
  body.innerHTML=`<form id="profile-form" class="profile-form"><div class="profile-preview">${avatarPicker(p)}<div><h2>${escape(p.name)}</h2><p>GitHub · ${escape(p.login)}</p></div></div><label>昵称<input name="name" value="${escape(p.name)}" maxlength="40" required></label><label>简介<textarea name="bio" maxlength="300" rows="2" placeholder="介绍一下你自己，或喜欢的创作。">${escape(p.bio)}</textarea></label><input type="hidden" name="avatar" value="${escape(p.avatar)}"><p class="subtitle">昵称、头像和简介会展示在你的公开主页。下载和收藏仅自己可见。</p><div class="detail-actions"><button class="pill" type="submit">保存资料</button><a class="pill secondary" href="#people/${escape(p.login)}">查看公开主页</a></div><p id="profile-status" role="status"></p></form>`;growBio();
@@ -71,8 +71,8 @@ document.addEventListener('click',async e=>{if(e.target.closest('[data-favorites
 document.addEventListener('click',e=>{if(e.target.closest('[data-personal-retry]')){accountPromise=null;renderPersonal(route)}if(!e.target.closest('.account-menu'))document.querySelector('.account-menu').open=false;});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelector('.account-menu').open=false;});
 
-function growBio(){const el=document.querySelector('textarea[name="bio"]');if(el){el.style.height='auto';el.style.height=(el.scrollHeight+2)+'px';}}
-document.addEventListener('input',e=>{if(e.target.matches('textarea[name="bio"]'))growBio();});
+function growBio(){document.querySelectorAll('.profile-form textarea').forEach(el=>{el.style.height='auto';el.style.height=(el.scrollHeight+2)+'px';});}
+document.addEventListener('input',e=>{if(e.target.matches('.profile-form textarea'))growBio();});
 window.addEventListener('resize',growBio);
 function avatarPicker(p){return `<label class="avatar-picker" title="更换头像">${avatarHTML(p)}<span class="avatar-edit">更换</span><input type="file" accept="image/jpeg,image/png,image/webp" data-avatar-file aria-label="选择头像图片"><span class="avatar-status" role="status"></span></label>`;}
 document.addEventListener('change',async e=>{
@@ -85,3 +85,6 @@ document.addEventListener('change',async e=>{
  const old=label.querySelector('.user-avatar'),replacement=document.createElement('img');replacement.className='user-avatar';replacement.alt='';replacement.src=image;old.replaceWith(replacement);status.textContent='已更新';await refreshAccount();toast('头像已更新');
  }catch(error){status.textContent=error.message;toast(error.message);}finally{if(url)URL.revokeObjectURL(url);input.disabled=false;input.value='';}
 });
+
+async function renderDrafts(body){const {items}=await api('drafts');if(route!=='studio')return;body.innerHTML=`<p class="subtitle">先记下作品想法。草稿仅自己可见，文件上传与正式发布正在接入。</p><form id="draft-form" class="profile-form"><input type="hidden" name="id"><label>作品标题<input name="title" maxlength="100" required placeholder="给作品起个名字"></label><label>作品简介<textarea name="description" rows="4" maxlength="1500"></textarea></label><button class="pill" type="submit">保存草稿</button><button class="pill secondary" type="reset">新建草稿</button><p id="draft-status" role="status"></p></form><h2 class="draft-heading">我的草稿</h2><div id="draft-list">${items.map(d=>`<article class="draft-card"><h3>${escape(d.title)}</h3><p>${escape(d.description)}</p><button class="pill secondary" data-edit-draft="${escape(d.id)}">继续编辑</button></article>`).join('')||'<div class="empty">还没有草稿。</div>'}</div>`;body.querySelectorAll('[data-edit-draft]').forEach(button=>button.onclick=()=>{const d=items.find(x=>x.id===button.dataset.editDraft),form=body.querySelector('#draft-form');form.elements.id.value=d.id;form.elements.title.value=d.title;form.elements.description.value=d.description;form.elements.title.focus();growBio();});growBio();}
+document.addEventListener('submit',async e=>{if(e.target.id!=='draft-form')return;e.preventDefault();const form=e.target,button=form.querySelector('[type="submit"]');button.disabled=true;try{const b=Object.fromEntries(new FormData(form));await api('drafts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});if(route==='studio')await renderDrafts(document.querySelector('#personal-body'));toast('草稿已保存');}catch(error){form.querySelector('#draft-status').textContent=error.message;}finally{button.disabled=false;}});

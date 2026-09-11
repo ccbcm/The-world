@@ -63,6 +63,16 @@ export async function onRequest({request,env}) {
       await spaces(env.DB);return json({profile:await profileFor(env.DB,person)});
     }
     const user=await current(request,env.DB);if(!user)return json({error:'请先登录 GitHub。'},401);
+    if(path==='/api/drafts') {
+      await env.DB.prepare('CREATE TABLE IF NOT EXISTS drafts (id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),title TEXT NOT NULL,description TEXT NOT NULL,updated_at INTEGER NOT NULL)').bind().run();
+      if(request.method==='GET')return json({items:(await env.DB.prepare('SELECT id,title,description,updated_at FROM drafts WHERE user_id=? ORDER BY updated_at DESC').bind(user.id).all()).results});
+      if(request.method==='POST') {
+        const b=await bodyJSON(request);if(!b||typeof b.title!=='string'||!b.title.trim()||b.title.length>100||typeof b.description!=='string'||b.description.length>1500)return json({error:'请填写标题（100 字内）和简介（1500 字内）。'},400);
+        const id=b.id||random();if(b.id){const own=await env.DB.prepare('SELECT id FROM drafts WHERE id=? AND user_id=?').bind(id,user.id).first();if(!own)return json({error:'找不到这份草稿。'},404);}
+        else {const count=await env.DB.prepare('SELECT COUNT(*) AS n FROM drafts WHERE user_id=?').bind(user.id).first();if(count.n>=50)return json({error:'最多保留 50 份草稿。'},400);}
+        await env.DB.prepare('INSERT INTO drafts(id,user_id,title,description,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,description=excluded.description,updated_at=excluded.updated_at').bind(id,user.id,b.title.trim(),b.description.trim(),Date.now()).run();return json({ok:true,id});
+      }
+    }
     if(path==='/api/avatar'&&request.method==='PUT') {
       if(!request.headers.get('Content-Type')?.startsWith('application/json'))return json({error:'请选择图片。'},415);
       const raw=await request.text();if(raw.length>100000)return json({error:'头像过大，请选择较小的图片。'},413);
