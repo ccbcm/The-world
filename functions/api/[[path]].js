@@ -7,6 +7,19 @@ const cookie = (name,value,age) => `${name}=${value}; Path=/; HttpOnly; Secure; 
 function cookies(request) { return Object.fromEntries((request.headers.get('Cookie')||'').split(';').map(s=>s.trim().split('='))); }
 function redirect(url, values=[]) { const headers=new Headers({'Location':url,'Cache-Control':'no-store','Referrer-Policy':'no-referrer'}); for(const value of values)headers.append('Set-Cookie',value);return new Response(null,{status:302,headers}); }
 async function current(request,db) { const token=cookies(request)['__Host-ccbcm-session'];if(!token||!/^[a-f0-9]{64}$/.test(token))return null;return db.prepare('SELECT users.id, users.login, users.name FROM sessions JOIN users ON users.id=sessions.user_id WHERE token_hash=? AND expires_at>?').bind(await hash(token),Date.now()).first(); }
+async function spaces(db) {
+  await db.prepare('CREATE TABLE IF NOT EXISTS profiles (user_id TEXT PRIMARY KEY REFERENCES users(id), nickname TEXT NOT NULL, bio TEXT NOT NULL DEFAULT "", avatar TEXT NOT NULL DEFAULT "github")').bind().run();
+  await db.prepare('CREATE TABLE IF NOT EXISTS favorites (user_id TEXT NOT NULL REFERENCES users(id), work_id TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY(user_id,work_id))').bind().run();
+}
+async function profileFor(db,user) {
+  const p=await db.prepare('SELECT nickname,bio,avatar FROM profiles WHERE user_id=?').bind(user.id).first();
+  return {login:user.login,name:p?.nickname||user.name,bio:p?.bio||'',avatar:p?.avatar||'github',avatarUrl:/^[0-9]+$/.test(user.id)?'https://avatars.githubusercontent.com/u/'+user.id+'?s=160':null};
+}
+async function bodyJSON(request) {
+  if(!request.headers.get('Content-Type')?.startsWith('application/json'))return null;
+  const text=await request.text();if(text.length>4096)return null;
+  try{const value=JSON.parse(text);return value&&typeof value==='object'&&!Array.isArray(value)?value:null}catch{return null}
+}
 export async function onRequest({request,env}) {
   const url=new URL(request.url),path=url.pathname;
   const ready=!!(env.DB&&env.GITHUB_CLIENT_ID&&env.GITHUB_CLIENT_SECRET);
@@ -40,7 +53,35 @@ export async function onRequest({request,env}) {
       ]);
       return redirect(ORIGIN+'/#downloads',[cookie('__Host-ccbcm-state','',0),cookie('__Host-ccbcm-session',session,30*86400)]);
     }
+    if(path.startsWith('/api/people/')&&request.method==='GET') {
+      const login=path.slice('/api/people/'.length);
+      if(!/^[a-zA-Z0-9-]{1,39}$/.test(login))return json({error:'找不到这位创作者。'},404);
+      const person=await env.DB.prepare('SELECT id,login,name FROM users WHERE lower(login)=lower(?)').bind(login).first();
+      if(!person)return json({error:'找不到这位创作者。'},404);
+      await spaces(env.DB);return json({profile:await profileFor(env.DB,person)});
+    }
     const user=await current(request,env.DB);if(!user)return json({error:'请先登录 GitHub。'},401);
+    if(path==='/api/profile'||path==='/api/favorites') {
+      await spaces(env.DB);
+      if(path==='/api/profile') {
+        if(request.method==='GET')return json({profile:await profileFor(env.DB,user)});
+        if(request.method==='PUT') {
+          const b=await bodyJSON(request);
+          if(!b||typeof b.name!=='string'||!b.name.trim()||b.name.trim().length>40||typeof b.bio!=='string'||b.bio.length>300||!['github','lilac','sea','peach'].includes(b.avatar))return json({error:'昵称请填 1–40 字，简介不超过 300 字，并选择头像。'},400);
+          await env.DB.prepare('INSERT INTO profiles(user_id,nickname,bio,avatar) VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET nickname=excluded.nickname,bio=excluded.bio,avatar=excluded.avatar').bind(user.id,b.name.trim(),b.bio.trim(),b.avatar).run();
+          return json({profile:await profileFor(env.DB,user)});
+        }
+      } else {
+        if(request.method==='GET')return json({items:(await env.DB.prepare('SELECT work_id AS id,created_at AS date FROM favorites WHERE user_id=? ORDER BY created_at DESC').bind(user.id).all()).results});
+        if(['POST','DELETE'].includes(request.method)) {
+          const b=await bodyJSON(request);
+          if(!b||(!ids.has(b.id)&&b.id!=='city'))return json({error:'找不到这件作品。'},400);
+          if(request.method==='POST')await env.DB.prepare('INSERT INTO favorites(user_id,work_id,created_at) VALUES(?,?,?) ON CONFLICT(user_id,work_id) DO NOTHING').bind(user.id,b.id,Date.now()).run();
+          else await env.DB.prepare('DELETE FROM favorites WHERE user_id=? AND work_id=?').bind(user.id,b.id).run();
+          return json({ok:true});
+        }
+      }
+    }
     if(path==='/api/logout'&&request.method==='POST') {
       await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await hash(cookies(request)['__Host-ccbcm-session'])).run();
       const response=json({ok:true});response.headers.append('Set-Cookie',cookie('__Host-ccbcm-session','',0));return response;
