@@ -11,9 +11,11 @@ async function spaces(db) {
   await db.prepare('CREATE TABLE IF NOT EXISTS profiles (user_id TEXT PRIMARY KEY REFERENCES users(id), nickname TEXT NOT NULL, bio TEXT NOT NULL DEFAULT "", avatar TEXT NOT NULL DEFAULT "github")').bind().run();
   await db.prepare('CREATE TABLE IF NOT EXISTS favorites (user_id TEXT NOT NULL REFERENCES users(id), work_id TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY(user_id,work_id))').bind().run();
 }
+async function avatarTable(db){await db.prepare('CREATE TABLE IF NOT EXISTS avatars (user_id TEXT PRIMARY KEY REFERENCES users(id), image TEXT NOT NULL)').bind().run();}
 async function profileFor(db,user) {
+  await avatarTable(db);const custom=await db.prepare('SELECT image FROM avatars WHERE user_id=?').bind(user.id).first();
   const p=await db.prepare('SELECT nickname,bio,avatar FROM profiles WHERE user_id=?').bind(user.id).first();
-  return {login:user.login,name:p?.nickname||user.name,bio:p?.bio||'',avatar:p?.avatar||'github',avatarUrl:/^[0-9]+$/.test(user.id)?'https://avatars.githubusercontent.com/u/'+user.id+'?s=160':null};
+  return {login:user.login,name:p?.nickname||user.name,bio:p?.bio||'',avatar:p?.avatar||'github',avatarUrl:custom?.image||(/^[0-9]+$/.test(user.id)?'https://avatars.githubusercontent.com/u/'+user.id+'?s=160':null),customAvatar:!!custom};
 }
 async function bodyJSON(request) {
   if(!request.headers.get('Content-Type')?.startsWith('application/json'))return null;
@@ -61,6 +63,20 @@ export async function onRequest({request,env}) {
       await spaces(env.DB);return json({profile:await profileFor(env.DB,person)});
     }
     const user=await current(request,env.DB);if(!user)return json({error:'请先登录 GitHub。'},401);
+    if(path==='/api/avatar'&&request.method==='PUT') {
+      if(!request.headers.get('Content-Type')?.startsWith('application/json'))return json({error:'请选择图片。'},415);
+      const raw=await request.text();if(raw.length>100000)return json({error:'头像过大，请选择较小的图片。'},413);
+      let image;try{image=JSON.parse(raw).image}catch{return json({error:'无效图片。'},400)}
+      if(typeof image!=='string'||!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(image))return json({error:'请选择有效图片。'},400);
+      let bytes;try{bytes=Uint8Array.from(atob(image.split(',')[1]),c=>c.charCodeAt(0))}catch{return json({error:'无效图片。'},400)}
+      let valid=false;
+      if(bytes[0]===255&&bytes[1]===216&&bytes[bytes.length-2]===255&&bytes[bytes.length-1]===217){
+        for(let i=2;i+8<bytes.length;){if(bytes[i]!==255)break;const marker=bytes[i+1],length=(bytes[i+2]<<8)|bytes[i+3];if(length<2||i+2+length>bytes.length)break;
+          if([192,193,194].includes(marker)){const h=(bytes[i+5]<<8)|bytes[i+6],w=(bytes[i+7]<<8)|bytes[i+8];valid=w>0&&h>0&&w<=512&&h<=512;break;}i+=length+2;}
+      }
+      if(!valid)return json({error:'图片无法识别，请重新选择。'},400);
+      await avatarTable(env.DB);await env.DB.prepare('INSERT INTO avatars(user_id,image) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET image=excluded.image').bind(user.id,image).run();return json({ok:true});
+    }
     if(path==='/api/profile'||path==='/api/favorites') {
       await spaces(env.DB);
       if(path==='/api/profile') {
