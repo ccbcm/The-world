@@ -105,10 +105,12 @@ assert.equal((await req('videos/'+vid+'/content')).status,401);
 
 assert.equal((await (await req('published-videos')).json()).items.length,0);
 assert.equal((await req('published-videos/'+vid+'/content')).status,404);
+assert.equal((await req('published-videos/'+vid+'/manifest')).status,404);
 assert.equal((await req('videos/'+vid+'/publish','POST',B)).status,404);
 assert.equal((await req('videos/'+vid+'/publish','POST',A)).status,200);
 assert.equal((await (await req('published-videos')).json()).items.length,1);
 assert.equal((await req('published-videos/'+vid+'/content')).status,200);
+assert.equal((await (await req('published-videos/'+vid+'/manifest')).json()).sha256,meta.sha256);
 assert.equal((await req('downloads','POST',B,{id:vid})).status,200);
 assert.equal((await req('reports','POST','',{id:vid,reason:'测试'})).status,401);
 assert.equal((await req('reports','POST',A,{id:vid,reason:''})).status,400);
@@ -127,6 +129,7 @@ assert.equal((await req('moderation/'+vid,'POST',B,{decision:'unlist',reason:''}
 assert.equal((await req('moderation/'+vid,'POST',B,{decision:'unlist',reason:'需要修改'})).status,200);
 assert.equal((await (await req('videos','GET',A)).json()).items[0].review_reason,'需要修改');
 assert.equal((await req('published-videos/'+vid+'/content')).status,404);
+assert.equal((await req('published-videos/'+vid+'/manifest')).status,404);
 assert.equal((await req('videos/'+vid+'/publish','POST',A)).status,409);
 assert.equal((await req('videos/'+vid+'/submit','POST',A)).status,200);
 assert.equal((await req('videos/'+vid,'DELETE',B)).status,404);

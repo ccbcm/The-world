@@ -153,6 +153,8 @@ export async function onRequest({request,env}) {
     if(path==='/api/published-videos'&&request.method==='GET'){
       await videoTable(env.DB);return json({items:(await env.DB.prepare("SELECT v.id,v.title,v.description,v.poster,v.size,u.login FROM creator_videos v JOIN users u ON u.id=v.user_id WHERE v.state='published' ORDER BY v.updated_at DESC").bind().all()).results});
     }
+    const manifest=path.match(/^\/api\/published-videos\/([a-f0-9]{64})\/manifest$/);
+    if(manifest&&request.method==='GET'){await videoTable(env.DB);const row=await env.DB.prepare("SELECT sha256,size FROM creator_videos WHERE id=? AND state='published'").bind(manifest[1]).first();return row?json(row):json({error:'壁纸未上架或已下架。'},404);}
     const publicVideo=path.match(/^\/api\/published-videos\/([a-f0-9]{64})\/content$/);
     if(publicVideo&&request.method==='GET'){
       await videoTable(env.DB);const row=await env.DB.prepare("SELECT user_id FROM creator_videos WHERE id=? AND state='published'").bind(publicVideo[1]).first();
