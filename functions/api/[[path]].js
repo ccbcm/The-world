@@ -181,6 +181,11 @@ export async function onRequest({request,env}) {
       if(!row)return json({error:'作品尚未公开或已下架。'},404);
       return await handleVideos(request,env,{id:row.user_id},'/api/videos/'+publicVideo[1]+'/content');
     }
+    if(path==='/api/creators'&&request.method==='GET'){
+      await creatorTable(env.DB);await spaces(env.DB);await avatarTable(env.DB);await videoTable(env.DB);
+      const rows=(await env.DB.prepare("SELECT u.id,u.login,u.name,p.nickname,p.bio,p.avatar,a.image,(SELECT COUNT(*) FROM creator_videos v WHERE v.user_id=u.id AND v.state='published') AS published_count FROM users u LEFT JOIN profiles p ON p.user_id=u.id LEFT JOIN avatars a ON a.user_id=u.id LEFT JOIN creator_access c ON c.user_id=u.id WHERE u.id=? OR c.status='approved' ORDER BY CASE WHEN u.id=? THEN 0 ELSE 1 END,lower(u.login) LIMIT 200").bind(env.ADMIN_GITHUB_ID||'',env.ADMIN_GITHUB_ID||'').all()).results;
+      return json({items:rows.map(p=>({login:p.login,name:p.nickname||p.name,bio:p.bio||'',avatar:p.avatar||'github',customAvatar:!!p.image,avatarUrl:p.image||(/^[0-9]+$/.test(p.id)?'https://avatars.githubusercontent.com/u/'+p.id+'?s=160':null),publishedCount:p.published_count+(p.login.toLowerCase()==='ccbcm'?5:0)}))});
+    }
     if(path.startsWith('/api/people/')&&request.method==='GET') {
       const login=path.slice('/api/people/'.length);
       if(!/^[a-zA-Z0-9-]{1,39}$/.test(login))return json({error:'找不到这位创作者。'},404);

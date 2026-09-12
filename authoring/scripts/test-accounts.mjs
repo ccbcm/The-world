@@ -78,6 +78,7 @@ assert.equal((await req('creator-application','POST',A,{note:'重复'})).status,
 assert.equal((await req('creator-applications','GET',B)).status,403);
 assert.equal((await req('creator-applications/alice','POST',A,{status:'approved',reason:''})).status,403);
 const ownerToken='c'.repeat(64);sql.prepare('INSERT INTO users VALUES(?,?,?,?)').run('owner','owner','owner',Date.now());sql.prepare('INSERT INTO sessions VALUES(?,?,?)').run(digest(ownerToken),'owner',Date.now()+60000);env.ADMIN_GITHUB_ID='owner';
+assert.deepEqual((await (await req('creators')).json()).items.map(x=>x.login),['owner']);
 assert.equal((await req('creator-applications/alice','POST',ownerToken,{status:'rejected',reason:''})).status,400);
 assert.equal((await req('creator-applications/alice','POST',ownerToken,{status:'rejected',reason:'请补充作品介绍'})).status,200);
 assert.equal((await req('videos','POST',A,{})).status,403);
@@ -87,6 +88,7 @@ assert.equal((await req('creator-applications/alice','POST',ownerToken,{status:'
 assert.equal((await (await req('account','GET',A)).json()).creator.status,'approved');
 assert.equal((await req('creator-application','POST',B,{note:'测试第二位作者'})).status,200);
 assert.equal((await req('creator-applications/bob','POST',ownerToken,{status:'approved',reason:''})).status,200);
+const directory=(await (await req('creators')).json()).items;assert.deepEqual(directory.map(x=>x.login),['owner','alice','bob']);assert.ok(directory.every(x=>x.publishedCount===0));assert.ok(directory.every(x=>!('note' in x)&&!('reason' in x)&&!('id' in x)));
 delete env.ADMIN_GITHUB_ID;
 const draft=await (await req('drafts','POST',A,{title:'私有草稿',description:'仅作者可见',user_id:'bob'})).json();
 assert.equal((await (await req('drafts','GET',A)).json()).items.length,1);

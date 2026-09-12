@@ -71,3 +71,7 @@
 .application-note summary{cursor:pointer;line-height:28px;color:var(--muted)}
 .creator-application{display:flex;flex-direction:column}
 .creator-application>form{margin-top:auto}
+
+.live-creator>.user-avatar{width:64px;height:64px;flex:none;object-fit:cover;border-radius:50%;display:grid;place-items:center}
+.live-creator h2{line-height:32px;height:32px}
+.live-creator .subtitle{line-height:24px;height:24px}
