@@ -20,6 +20,14 @@ assert.deepEqual((await (await req('downloads','GET','a'.repeat(64))).json()).it
 assert.equal((await (await req('downloads','GET','b'.repeat(64))).json()).items.length,0);
 // Persistent profiles and private favorites use the session identity, never a supplied user_id.
 const A='a'.repeat(64), B='b'.repeat(64);
+assert.equal((await req('downloads','DELETE',B,{id:'blue'})).status,200);
+assert.equal((await (await req('downloads','GET',A)).json()).items.length,1);
+assert.equal((await req('downloads','DELETE',A,{id:'blue'},'https://evil.example')).status,403);
+assert.equal((await req('downloads','DELETE','',{id:'blue'})).status,401);
+assert.equal((await req('downloads','POST',A,{id:'waves'})).status,200);
+assert.equal((await req('downloads','DELETE',A,{id:'waves'})).status,200);
+assert.deepEqual((await (await req('downloads','GET',A)).json()).items.map(x=>x.id),['blue']);
+
 assert.equal((await req('profile','PUT',A,{name:'小风景',bio:'喜欢海面',avatar:'sea',user_id:'bob'})).status,200);
 assert.equal((await (await req('profile','GET',A)).json()).profile.name,'小风景');
 assert.equal((await (await req('profile','GET',B)).json()).profile.name,'bob');

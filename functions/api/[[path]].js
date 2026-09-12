@@ -243,6 +243,10 @@ export async function onRequest({request,env}) {
     if(path==='/api/downloads'&&request.method==='GET') {
       const result=await env.DB.prepare('SELECT work_id AS id,created_at AS date FROM downloads WHERE user_id=? ORDER BY created_at DESC').bind(user.id).all();return json({items:result.results});
     }
+    if(path==='/api/downloads'&&request.method==='DELETE'){
+      const b=await bodyJSON(request);if(!b||typeof b.id!=='string'||!/^[a-z0-9-]{1,64}$/.test(b.id))return json({error:'无效作品。'},400);
+      await env.DB.prepare('DELETE FROM downloads WHERE user_id=? AND work_id=?').bind(user.id,b.id).run();return json({ok:true});
+    }
     if(path==='/api/downloads'&&request.method==='POST') {
       if(!request.headers.get('Content-Type')?.startsWith('application/json'))return json({error:'无效请求。'},415);
       const body=await request.text();if(body.length>256)return json({error:'请求过大。'},413);
