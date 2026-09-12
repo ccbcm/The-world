@@ -58,3 +58,16 @@
 .video-work .detail-actions{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
 .video-work .detail-actions>*{margin:0}
 .video-work .video-copy>h2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.creator-application{background:var(--panel);border:1px solid var(--line);border-radius:28px;padding:24px;min-width:0}
+.creator-application h2{margin:0 0 14px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.creator-application p{line-height:1.7;overflow-wrap:anywhere}
+.creator-application label{display:grid;gap:10px;margin:18px 0}
+.creator-application textarea{width:100%;box-sizing:border-box;min-height:100px;resize:none;overflow:hidden;border-radius:18px;padding:14px;font:inherit;background:var(--bg);color:var(--text);border:1px solid var(--line)}
+.creator-application .detail-actions{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.creator-application .detail-actions>*{margin:0}
+.creator-application form>[role=status]{min-height:24px}
+
+.application-note summary{cursor:pointer;line-height:28px;color:var(--muted)}
+.creator-application{display:flex;flex-direction:column}
+.creator-application>form{margin-top:auto}

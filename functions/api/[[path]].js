@@ -1,5 +1,5 @@
 const ORIGIN = 'https://ccbcm.net';
-const ids = new Set(['blue','waves','clouds','net','cat','lines','caffeine','tux']);
+const ids = new Set(['blue','cat','lines','caffeine','tux']);
 const json = (body,status=200) => new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const random = () => Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
 const hash = async value => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))),b=>b.toString(16).padStart(2,'0')).join('');
@@ -25,6 +25,24 @@ async function bodyJSON(request) {
 const VIDEO_MAX=25*1024*1024, USER_VIDEO_MAX=250*1024*1024, SITE_VIDEO_MAX=8*1024*1024*1024;
 async function isPublished(db,id){if(typeof id!=='string'||!/^[a-f0-9]{64}$/.test(id))return false;await videoTable(db);return !!await db.prepare("SELECT id FROM creator_videos WHERE id=? AND state='published'").bind(id).first();}
 const isReviewer=(env,user)=>!!user&&!!env.ADMIN_GITHUB_ID&&String(user.id)===String(env.ADMIN_GITHUB_ID);
+async function creatorTable(db){await db.prepare("CREATE TABLE IF NOT EXISTS creator_access (user_id TEXT PRIMARY KEY REFERENCES users(id), status TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', reason TEXT NOT NULL DEFAULT '', updated_at INTEGER NOT NULL)").bind().run();}
+async function creatorAccess(env,user){if(!user)return {status:'none'};if(isReviewer(env,user))return {status:'approved'};await creatorTable(env.DB);return await env.DB.prepare('SELECT status,note,reason FROM creator_access WHERE user_id=?').bind(user.id).first()||{status:'none'};}
+async function creatorPermissions(request,env,user,path){
+ await creatorTable(env.DB);
+ if(path==='/api/creator-application'){
+  if(request.method==='GET')return json(await creatorAccess(env,user));
+  if(request.method!=='POST')return json({error:'不支持这个操作。'},405);
+  const b=await bodyJSON(request);if(!b||typeof b.note!=='string'||!b.note.trim()||b.note.length>500)return json({error:'请简单介绍想分享的作品，最多500字。'},400);
+  if(isReviewer(env,user))return json({error:'你已经是创作者。'},409);
+  const result=await env.DB.prepare("INSERT INTO creator_access(user_id,status,note,reason,updated_at) VALUES(?,'pending',?,'',?) ON CONFLICT(user_id) DO UPDATE SET status='pending',note=excluded.note,reason='',updated_at=excluded.updated_at WHERE creator_access.status='rejected'").bind(user.id,b.note.trim(),Date.now()).run();
+  return changed(result)?json({ok:true,status:'pending'}):json({error:'申请已提交或已经通过。'},409);
+ }
+ if(!isReviewer(env,user))return json({error:'只有 CCBCM 可以审核创作者。'},403);
+ if(path==='/api/creator-applications'&&request.method==='GET')return json({items:(await env.DB.prepare("SELECT a.user_id,a.status,a.note,a.reason,u.login,u.name FROM creator_access a JOIN users u ON u.id=a.user_id ORDER BY CASE WHEN a.status='pending' THEN 0 ELSE 1 END,a.updated_at DESC LIMIT 200").bind().all()).results});
+ const match=path.match(/^\/api\/creator-applications\/([^/]+)$/);if(!match||request.method!=='POST')return json({error:'找不到申请。'},404);
+ const b=await bodyJSON(request);if(!b||!['approved','rejected'].includes(b.status)||typeof b.reason!=='string'||b.reason.length>500||(b.status==='rejected'&&!b.reason.trim()))return json({error:'退回时请填写原因，最多500字。'},400);
+ const result=await env.DB.prepare("UPDATE creator_access SET status=?,reason=?,updated_at=? WHERE user_id=? AND status='pending'").bind(b.status,b.reason.trim(),Date.now(),decodeURIComponent(match[1])).run();return changed(result)?json({ok:true}):json({error:'申请已处理，请刷新。'},409);
+}
 async function reviewTable(db){await db.prepare("CREATE TABLE IF NOT EXISTS video_reviews (video_id TEXT PRIMARY KEY, decision TEXT NOT NULL, reason TEXT NOT NULL, reviewer_id TEXT NOT NULL, reviewed_at INTEGER NOT NULL)").bind().run();}
 async function moderation(request,env,user,path){
  if(!isReviewer(env,user))return json({error:'只有网站管理员可以审核作品。'},403);
@@ -122,7 +140,7 @@ export async function onRequest({request,env}) {
   const ready=!!(env.DB&&env.GITHUB_CLIENT_ID&&env.GITHUB_CLIENT_SECRET);
   if(path==='/api/account'&&request.method==='GET') {
     if(!ready)return json({user:null,ready:false});
-    try{const user=await current(request,env.DB);return json({user,ready:true,reviewer:isReviewer(env,user)});}catch{return json({error:'账号服务暂时不可用，请稍后重试。'},503);}
+    try{const user=await current(request,env.DB);return json({user,ready:true,reviewer:isReviewer(env,user),creator:await creatorAccess(env,user)});}catch{return json({error:'账号服务暂时不可用，请稍后重试。'},503);}
   }
   if(!ready)return json({error:'GitHub 登录正在配置，请稍后再来。'},503);
   if(url.origin!==ORIGIN)return json({error:'请在 ccbcm.net 使用账号功能。'},403);
@@ -171,6 +189,9 @@ export async function onRequest({request,env}) {
       await spaces(env.DB);return json({profile:await profileFor(env.DB,person)});
     }
     const user=await current(request,env.DB);if(!user)return json({error:'请先登录 GitHub。'},401);
+    if(path==='/api/creator-application'||path==='/api/creator-applications'||path.startsWith('/api/creator-applications/'))return await creatorPermissions(request,env,user,path);
+    const creatorWrite=(path==='/api/drafts'&&request.method==='POST')||((path==='/api/videos'||path.startsWith('/api/videos/'))&&['POST','PUT','PATCH'].includes(request.method)&&!path.endsWith('/unlist'));
+    if(creatorWrite&&(await creatorAccess(env,user)).status!=='approved')return json({error:'请先申请创作者，通过审核后即可上传和发布。'},403);
     if(path==='/api/reports'||path==='/api/moderation/reports'){
       await env.DB.prepare("CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,work_id TEXT NOT NULL,reason TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'open',created_at INTEGER NOT NULL, UNIQUE(user_id,work_id))").bind().run();
       if(path==='/api/moderation/reports'){
@@ -229,7 +250,7 @@ export async function onRequest({request,env}) {
         if(request.method==='GET')return json({items:(await env.DB.prepare('SELECT work_id AS id,created_at AS date FROM favorites WHERE user_id=? ORDER BY created_at DESC').bind(user.id).all()).results});
         if(['POST','DELETE'].includes(request.method)) {
           const b=await bodyJSON(request);
-          if(!b||(!ids.has(b.id)&&b.id!=='city'&&!await isPublished(env.DB,b.id)))return json({error:'找不到这件作品。'},400);
+          if(!b||(!ids.has(b.id)&&!await isPublished(env.DB,b.id)))return json({error:'找不到这件作品。'},400);
           if(request.method==='POST')await env.DB.prepare('INSERT INTO favorites(user_id,work_id,created_at) VALUES(?,?,?) ON CONFLICT(user_id,work_id) DO NOTHING').bind(user.id,b.id,Date.now()).run();
           else await env.DB.prepare('DELETE FROM favorites WHERE user_id=? AND work_id=?').bind(user.id,b.id).run();
           return json({ok:true});
@@ -241,7 +262,7 @@ export async function onRequest({request,env}) {
       const response=json({ok:true});response.headers.append('Set-Cookie',cookie('__Host-ccbcm-session','',0));return response;
     }
     if(path==='/api/downloads'&&request.method==='GET') {
-      const result=await env.DB.prepare('SELECT work_id AS id,created_at AS date FROM downloads WHERE user_id=? ORDER BY created_at DESC').bind(user.id).all();return json({items:result.results});
+      const result=await env.DB.prepare('SELECT work_id AS id,created_at AS date FROM downloads WHERE user_id=? ORDER BY created_at DESC').bind(user.id).all();return json({items:result.results.filter(x=>!['waves','clouds','net','city'].includes(x.id))});
     }
     if(path==='/api/downloads'&&request.method==='DELETE'){
       const b=await bodyJSON(request);if(!b||typeof b.id!=='string'||!/^[a-z0-9-]{1,64}$/.test(b.id))return json({error:'无效作品。'},400);
