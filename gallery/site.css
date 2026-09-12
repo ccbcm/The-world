@@ -33,3 +33,5 @@
 .account-menu #account-link{display:flex;align-items:center;justify-content:center;gap:9px;padding:9px 14px;line-height:20px}.account-menu #account-link>span{min-width:0;overflow:hidden;text-overflow:ellipsis}.account-menu #account-link:after{margin-left:0;top:1px}.account-menu #account-link .user-avatar{margin:0;display:block}@media(max-width:700px){.account-menu #account-link{padding:8px 12px}}
 
 .report-form{margin-top:24px}.report-form label{display:grid;gap:8px;margin:16px 0}.report-form textarea{width:100%;min-height:80px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px}
+
+.apply-feedback{flex-basis:100%;line-height:1.7;margin:12px 0 0}.apply-feedback a{margin-left:6px;text-decoration:underline}
