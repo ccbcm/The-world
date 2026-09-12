@@ -167,6 +167,19 @@ export async function onRequest({request,env}) {
       await spaces(env.DB);return json({profile:await profileFor(env.DB,person)});
     }
     const user=await current(request,env.DB);if(!user)return json({error:'请先登录 GitHub。'},401);
+    if(path==='/api/reports'||path==='/api/moderation/reports'){
+      await env.DB.prepare("CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,work_id TEXT NOT NULL,reason TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'open',created_at INTEGER NOT NULL, UNIQUE(user_id,work_id))").bind().run();
+      if(path==='/api/moderation/reports'){
+        if(!isReviewer(env,user))return json({error:'只有管理员可以处理举报。'},403);
+        if(request.method==='GET')return json({items:(await env.DB.prepare("SELECT r.id,r.work_id,r.reason,r.state,u.login,v.title FROM reports r JOIN users u ON u.id=r.user_id LEFT JOIN creator_videos v ON v.id=r.work_id ORDER BY r.created_at DESC LIMIT 200").bind().all()).results});
+        if(request.method==='POST'){const b=await bodyJSON(request);if(!b||typeof b.id!=='string')return json({error:'无效举报。'},400);const result=await env.DB.prepare("UPDATE reports SET state='closed' WHERE id=? AND state='open'").bind(b.id).run();return changed(result)?json({ok:true}):json({error:'举报已处理或不存在。'},409);}
+      }else if(request.method==='POST'){
+        const b=await bodyJSON(request);if(!b||typeof b.reason!=='string'||!b.reason.trim()||b.reason.length>500||!await isPublished(env.DB,b.id))return json({error:'请填写举报原因，最多 500 字。'},400);
+        const result=await env.DB.prepare("INSERT INTO reports(id,user_id,work_id,reason,created_at) SELECT ?,?,?,?,? WHERE (SELECT COUNT(*) FROM reports WHERE user_id=? AND created_at>?)<10 ON CONFLICT(user_id,work_id) DO NOTHING").bind(random(),user.id,b.id,b.reason.trim(),Date.now(),user.id,Date.now()-86400000).run();
+        return changed(result)?json({ok:true}):json({error:'你已举报过这件作品，或今天的举报次数已达上限。'},409);
+      }
+      return json({error:'不支持这个操作。'},405);
+    }
     if(path==='/api/moderation'||path.startsWith('/api/moderation/'))return await moderation(request,env,user,path);
     if(path==='/api/videos'||path.startsWith('/api/videos/'))return await handleVideos(request,env,user,path);
     if(path==='/api/storage'&&request.method==='GET') {

@@ -110,6 +110,16 @@ assert.equal((await req('videos/'+vid+'/publish','POST',A)).status,200);
 assert.equal((await (await req('published-videos')).json()).items.length,1);
 assert.equal((await req('published-videos/'+vid+'/content')).status,200);
 assert.equal((await req('downloads','POST',B,{id:vid})).status,200);
+assert.equal((await req('reports','POST','',{id:vid,reason:'测试'})).status,401);
+assert.equal((await req('reports','POST',A,{id:vid,reason:''})).status,400);
+assert.equal((await req('reports','POST',A,{id:vid,reason:'测试原因'})).status,200);
+assert.equal((await req('reports','POST',A,{id:vid,reason:'重复'})).status,409);
+assert.equal((await req('moderation/reports','GET',A)).status,403);
+const report=(await (await req('moderation/reports','GET',B)).json()).items[0];
+assert.equal(report.reason,'测试原因');
+assert.equal((await req('moderation/reports','POST',B,{id:report.id})).status,200);
+assert.equal((await req('moderation/reports','POST',B,{id:report.id})).status,409);
+
 assert.equal((await req('favorites','POST',B,{id:vid})).status,200);
 assert.equal((await req('videos/'+vid,'PATCH',A,{title:'不能直接修改',description:''})).status,409);
 assert.equal((await req('moderation/'+vid,'POST',A,{decision:'unlist',reason:'越权'})).status,403);
