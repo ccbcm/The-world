@@ -34,12 +34,12 @@ async function moderation(request,env,user,path){
  const row=await db.prepare('SELECT * FROM creator_videos WHERE id=?').bind(m[1]).first();if(!row)return json({error:'找不到这件作品。'},404);
  if(m[2]&&request.method==='GET')return handleVideos(request,env,{id:row.user_id},'/api/videos/'+row.id+'/content');
  if(!m[2]&&request.method==='POST'){
- const b=await bodyJSON(request);if(!b||!['approve','reject'].includes(b.decision)||typeof b.reason!=='string'||b.reason.length>500||(b.decision==='reject'&&!b.reason.trim()))return json({error:'退回时请填写原因，最多 500 字。'},400);
- const state=b.decision==='approve'?'approved':'ready',now=Date.now();
+ const b=await bodyJSON(request);if(!b||!['approve','reject','unlist'].includes(b.decision)||typeof b.reason!=='string'||b.reason.length>500||(b.decision!=='approve'&&!b.reason.trim()))return json({error:'退回或下架时请填写原因，最多 500 字。'},400);
+ const state=b.decision==='approve'?'approved':b.decision==='unlist'?'unlisted':'ready',from=b.decision==='unlist'?'published':'review',now=Date.now();
  // One transaction keeps the decision and state together; a competing review cannot overwrite it.
  const result=await db.batch([
- db.prepare("INSERT INTO video_reviews(video_id,decision,reason,reviewer_id,reviewed_at) SELECT id,?,?,?,? FROM creator_videos WHERE id=? AND state='review' ON CONFLICT(video_id) DO UPDATE SET decision=excluded.decision,reason=excluded.reason,reviewer_id=excluded.reviewer_id,reviewed_at=excluded.reviewed_at").bind(b.decision,b.reason.trim(),user.id,now,row.id),
- db.prepare("UPDATE creator_videos SET state=?,updated_at=? WHERE id=? AND state='review'").bind(state,now,row.id)]);
+ db.prepare("INSERT INTO video_reviews(video_id,decision,reason,reviewer_id,reviewed_at) SELECT id,?,?,?,? FROM creator_videos WHERE id=? AND state=? ON CONFLICT(video_id) DO UPDATE SET decision=excluded.decision,reason=excluded.reason,reviewer_id=excluded.reviewer_id,reviewed_at=excluded.reviewed_at").bind(b.decision,b.reason.trim(),user.id,now,row.id,from),
+ db.prepare("UPDATE creator_videos SET state=?,updated_at=? WHERE id=? AND state=?").bind(state,now,row.id,from)]);
  if(!changed(result[1]))return json({error:'作品状态已改变，请刷新后再审核。'},409);
  return json({ok:true,state});
  }

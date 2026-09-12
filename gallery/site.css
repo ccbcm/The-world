@@ -27,3 +27,5 @@
 .account-menu nav [hidden]{display:none}#review-body .video-work>h2,#review-body .video-work>p,#review-body .video-work>a{margin:16px 24px;display:block;overflow-wrap:anywhere}
 
 .video-copy{padding:24px;min-width:0;overflow-wrap:anywhere}.video-copy>h2,.video-copy>h3{margin:0 0 12px}.video-copy>p{line-height:1.7;margin:14px 0}.video-copy>form{padding:18px 0 0}.video-work video{display:block}.download-info,.draft-card{overflow-wrap:anywhere}@media(max-width:700px){.video-copy{padding:20px}}
+
+.account-menu summary:after{content:"";display:inline-block;width:16px;height:10px;margin-left:10px;position:relative;top:-2px;flex-shrink:0;background:currentColor;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 10'%3E%3Cpath d='M2 2L9 8L16 2' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat}.account-menu[open] summary:after{transform:rotate(180deg)}
