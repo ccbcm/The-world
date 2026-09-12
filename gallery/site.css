@@ -37,3 +37,13 @@
 .apply-feedback{flex-basis:100%;line-height:1.7;margin:12px 0 0}.apply-feedback a{margin-left:6px;text-decoration:underline}
 
 #download-grid{align-items:start}#download-grid .download-card{display:flex;flex-direction:column;min-width:0}#download-grid .cover{aspect-ratio:16/10;width:100%;height:auto;display:block;flex:none}#download-grid .cover img{width:100%;height:100%;object-fit:cover}#download-grid .unavailable-cover{display:grid;place-items:center;background:var(--panel);color:var(--muted)}#download-grid .download-info{padding:22px;display:grid;grid-template-rows:28px 24px 24px auto;gap:8px;min-width:0}#download-grid .download-info h3{font-size:18px;line-height:28px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#download-grid .download-info .author,#download-grid .download-kind{display:block;font-size:14px;line-height:24px;height:24px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}#download-grid .download-actions{display:flex;align-items:center;gap:14px;padding-top:10px;min-width:0}#download-grid .download-actions .pill{flex:0 0 80px;min-height:42px;padding:10px 12px;margin:0}#download-grid .download-actions .text-button{min-width:0;margin:0;padding:10px 0;font-size:13px;line-height:22px;white-space:nowrap}#download-grid .apply-feedback{grid-column:1/-1;margin:4px 0 0}@media(max-width:380px){#download-grid .download-info{padding:16px}#download-grid .download-actions{gap:10px}}
+
+/* Shared public catalog: discovery, wallpapers, favorites and profiles. */
+.catalog-card{display:flex;flex-direction:column;min-width:0}
+.catalog-card .cover{display:block;width:100%;aspect-ratio:16/10;height:auto;flex:none}
+.catalog-card .cover img{display:block;width:100%;height:100%;object-fit:cover}
+.catalog-card .card-info{display:flex;align-items:center;gap:14px;padding:22px;margin:0;min-width:0}
+.catalog-card .card-text{flex:1;min-width:0;display:grid;grid-template-rows:28px 24px;gap:8px}
+.catalog-card .card-text h3{font-size:18px;line-height:28px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.catalog-card .card-text .author{display:block;font-size:14px;line-height:24px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.catalog-card .heart{flex-shrink:0;margin:0}
