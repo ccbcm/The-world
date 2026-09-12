@@ -153,6 +153,8 @@ export async function onRequest({request,env}) {
     if(path==='/api/published-videos'&&request.method==='GET'){
       await videoTable(env.DB);return json({items:(await env.DB.prepare("SELECT v.id,v.title,v.description,v.poster,v.size,u.login FROM creator_videos v JOIN users u ON u.id=v.user_id WHERE v.state='published' ORDER BY v.updated_at DESC").bind().all()).results});
     }
+    const staticMatch=path.match(/^\/api\/published-videos\/(cat|lines|caffeine|tux)\/manifest$/);
+    if(staticMatch&&request.method==='GET')return json(({"cat": {"sha256": "ee71ada72d5e0649274453d926ac229f91a46a92936af0e274346458fccc6137", "size": 204031}, "lines": {"sha256": "4d1d69b3fab9eb3f0779f6f15dfde918c99e2a2b53878d7badc7abae5744523b", "size": 1542233}, "caffeine": {"sha256": "aa4084a66cf240ac336604916d86e62133a87c0c3355717b26fa63dda2c4b20d", "size": 216647}, "tux": {"sha256": "7265a930a86724c4018712ceb7b9d5c475c205b7672a8fbd33f9343b560124dd", "size": 220612}})[staticMatch[1]]);
     const manifest=path.match(/^\/api\/published-videos\/([a-f0-9]{64})\/manifest$/);
     if(manifest&&request.method==='GET'){await videoTable(env.DB);const row=await env.DB.prepare("SELECT sha256,size FROM creator_videos WHERE id=? AND state='published'").bind(manifest[1]).first();return row?json(row):json({error:'壁纸未上架或已下架。'},404);}
     const publicVideo=path.match(/^\/api\/published-videos\/([a-f0-9]{64})\/content$/);

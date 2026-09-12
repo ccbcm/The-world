@@ -4,5 +4,8 @@
   "version": "1.0.0",
   "scripts": {
     "build": "node authoring/scripts/build-site.mjs"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.4"
   }
 }
