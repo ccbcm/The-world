@@ -23,5 +23,5 @@ for (const directory of directories) {
 }
 
 console.log(`Cloudflare Pages output created at ${output}`);
-await writeFile(path.join(output, '_routes.json'), JSON.stringify({version:1,include:['/api/*'],exclude:[]}));
+await writeFile(path.join(output, '_routes.json'), JSON.stringify({version:1,include:['/api/*','/city','/city.html','/city/'],exclude:[]}));
 
