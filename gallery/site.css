@@ -75,3 +75,6 @@
 .live-creator>.user-avatar{width:64px;height:64px;flex:none;object-fit:cover;border-radius:50%;display:grid;place-items:center}
 .live-creator h2{line-height:32px;height:32px}
 .live-creator .subtitle{line-height:24px;height:24px}
+
+/* Shared image/video frame and compact upload panel. */
+.video-work .wallpaper-preview,.detail-cover .wallpaper-preview{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#0c0c10}.detail-cover .wallpaper-preview{height:100%}.upload-panel h2{margin:0 0 12px}.upload-panel .upload-hint{font-size:13px;margin:14px 0 0;color:var(--muted)}#video-upload-status:empty{display:none}#video-progress:not([hidden]){display:block;margin-top:20px}.upload-panel .video-pick{margin-top:8px;max-width:100%}

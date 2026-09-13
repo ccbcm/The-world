@@ -22,7 +22,7 @@ async function bodyJSON(request) {
   const text=await request.text();if(text.length>4096)return null;
   try{const value=JSON.parse(text);return value&&typeof value==='object'&&!Array.isArray(value)?value:null}catch{return null}
 }
-const VIDEO_MAX=25*1024*1024, USER_VIDEO_MAX=250*1024*1024, SITE_VIDEO_MAX=8*1024*1024*1024;
+const VIDEO_MAX=200*1024*1024, PART_SIZE=8*1024*1024;
 async function isPublished(db,id){if(typeof id!=='string'||!/^[a-f0-9]{64}$/.test(id))return false;await videoTable(db);return !!await db.prepare("SELECT id FROM creator_videos WHERE id=? AND state='published'").bind(id).first();}
 const isReviewer=(env,user)=>!!user&&!!env.ADMIN_GITHUB_ID&&String(user.id)===String(env.ADMIN_GITHUB_ID);
 async function creatorTable(db){await db.prepare("CREATE TABLE IF NOT EXISTS creator_access (user_id TEXT PRIMARY KEY REFERENCES users(id), status TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', reason TEXT NOT NULL DEFAULT '', updated_at INTEGER NOT NULL)").bind().run();}
@@ -47,7 +47,7 @@ async function reviewTable(db){await db.prepare("CREATE TABLE IF NOT EXISTS vide
 async function moderation(request,env,user,path){
  if(!isReviewer(env,user))return json({error:'只有网站管理员可以审核作品。'},403);
  await videoTable(env.DB);await reviewTable(env.DB);const db=env.DB;
- if(path==='/api/moderation'&&request.method==='GET')return json({items:(await db.prepare("SELECT v.id,v.title,v.description,v.poster,v.size,v.state,v.updated_at,u.login,r.reason,r.decision FROM creator_videos v JOIN users u ON u.id=v.user_id LEFT JOIN video_reviews r ON r.video_id=v.id WHERE v.state IN ('review','approved','ready','published','unlisted') AND (v.state!='ready' OR r.video_id IS NOT NULL) ORDER BY CASE WHEN v.state='review' THEN 0 ELSE 1 END,v.updated_at DESC").bind().all()).results});
+ if(path==='/api/moderation'&&request.method==='GET')return json({items:(await db.prepare("SELECT v.id,v.title,v.description,v.poster,v.size,COALESCE((SELECT mime FROM wallpaper_media WHERE id=v.id),'video/mp4') AS mime,v.state,v.updated_at,u.login,r.reason,r.decision FROM creator_videos v JOIN users u ON u.id=v.user_id LEFT JOIN video_reviews r ON r.video_id=v.id WHERE v.state IN ('review','approved','ready','published','unlisted') AND (v.state!='ready' OR r.video_id IS NOT NULL) ORDER BY CASE WHEN v.state='review' THEN 0 ELSE 1 END,v.updated_at DESC").bind().all()).results});
  const m=path.match(/^\/api\/moderation\/([a-f0-9]{64})(\/content)?$/);if(!m)return json({error:'找不到这件作品。'},404);
  const row=await db.prepare('SELECT * FROM creator_videos WHERE id=?').bind(m[1]).first();if(!row)return json({error:'找不到这件作品。'},404);
  if(m[2]&&request.method==='GET')return handleVideos(request,env,{id:row.user_id},'/api/videos/'+row.id+'/content');
@@ -63,7 +63,7 @@ async function moderation(request,env,user,path){
  }
  return json({error:'不支持这个操作。'},405);
 }
-async function videoTable(db){await db.prepare(`CREATE TABLE IF NOT EXISTS creator_videos (
+async function videoTable(db){await db.prepare("CREATE TABLE IF NOT EXISTS wallpaper_media (id TEXT PRIMARY KEY,mime TEXT NOT NULL,upload_id TEXT,parts TEXT NOT NULL DEFAULT '{}')").bind().run();await db.prepare(`CREATE TABLE IF NOT EXISTS creator_videos (
  id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),title TEXT NOT NULL,description TEXT NOT NULL DEFAULT '',
  size INTEGER NOT NULL,sha256 TEXT NOT NULL,poster TEXT NOT NULL DEFAULT '',state TEXT NOT NULL,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL
 )`).bind().run();await db.prepare('CREATE INDEX IF NOT EXISTS creator_videos_owner ON creator_videos(user_id)').bind().run();
@@ -76,43 +76,94 @@ const changed=r=>Number(r.meta?.changes??r.changes??0);
 async function limitedBody(request,max){const reader=request.body?.getReader();if(!reader)throw Error('文件为空。');const parts=[];let size=0;try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>max)throw Error('文件超过大小限制。');parts.push(value);}}catch(e){await reader.cancel().catch(()=>{});throw e;}const bytes=new Uint8Array(size);let offset=0;for(const part of parts){bytes.set(part,offset);offset+=part.length;}return bytes;}
 function mp4Container(bytes){if(bytes.length<32)return false;const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);let pos=0;const boxes=new Set();while(pos+8<=bytes.length){let size=view.getUint32(pos);const type=String.fromCharCode(...bytes.subarray(pos+4,pos+8));let header=8;if(size===1){if(pos+16>bytes.length||view.getUint32(pos+8)!==0)return false;size=view.getUint32(pos+12);header=16;}if(size===0)size=bytes.length-pos;if(size<header||pos+size>bytes.length)return false;boxes.add(type);pos+=size;}return pos===bytes.length&&boxes.has('ftyp')&&boxes.has('moov')&&boxes.has('mdat');}
 async function videoJSON(request){try{return JSON.parse(new TextDecoder().decode(await limitedBody(request,90000)))}catch{return null}}
+function imageHeader(b,mime){
+ if(mime==='image/png')return b.length>=33&&[137,80,78,71,13,10,26,10].every((v,i)=>b[i]===v)&&String.fromCharCode(...b.slice(12,16))==='IHDR'&&new DataView(b.buffer,b.byteOffset).getUint32(16)>0&&new DataView(b.buffer,b.byteOffset).getUint32(20)>0;
+ return mime==='image/jpeg'&&b.length>=32&&b[0]===255&&b[1]===216&&b[2]===255;
+}
+// Scan top-level MP4 boxes while hashing the R2 stream. Memory is bounded by a stream chunk.
+async function verifyWallpaper(object,row){
+ const digest=new crypto.DigestStream('SHA-256'),writer=digest.getWriter(),reader=object.body.getReader();
+ let total=0,skip=0,header=[],first=[],tail=new Uint8Array(),boxCount=0;const boxes=new Set();
+ try{while(true){const {done,value}=await reader.read();if(done)break;total+=value.length;if(total>row.size)throw Error('文件大小不符。');
+  if(first.length<40)first.push(...value.slice(0,40-first.length));
+  if(row.mime!=='video/mp4'){const end=new Uint8Array(tail.length+Math.min(value.length,12));end.set(tail);end.set(value.slice(-12),tail.length);tail=end.slice(-12);}
+  await writer.write(value);
+  if(row.mime==='video/mp4'){let i=0;while(i<value.length){if(skip){const n=Math.min(skip,value.length-i);skip-=n;i+=n;continue;}header.push(value[i++]);if(header.length===8||header.length===16){const b=new Uint8Array(header),v=new DataView(b.buffer);let size=v.getUint32(0);if(size===1&&header.length===8)continue;if(size===1){if(v.getUint32(8)!==0)throw Error('MP4 结构无效。');size=v.getUint32(12);}if(size===0)size=row.size-(total-value.length+i-header.length);if(size<header.length||size>row.size||++boxCount>10000)throw Error('MP4 结构无效。');boxes.add(String.fromCharCode(...b.slice(4,8)));skip=size-header.length;header=[];}}}
+ }
+ await writer.close();const sha=Array.from(new Uint8Array(await digest.digest),b=>b.toString(16).padStart(2,'0')).join('');
+ if(total!==row.size||sha!==row.sha256)throw Error('文件校验未通过，请重新选择原文件。');
+ if(row.mime==='video/mp4'?(skip!==0||header.length!==0||!['ftyp','moov','mdat'].every(x=>boxes.has(x))):!imageHeader(new Uint8Array(first),row.mime)||!(row.mime==='image/jpeg'?tail.at(-2)===255&&tail.at(-1)===217:tail.length===12&&String.fromCharCode(...tail.slice(4,8))==='IEND'))throw Error('文件格式无效，请重新导出。');
+ }catch(e){await reader.cancel().catch(()=>{});await writer.abort().catch(()=>{});throw e;}
+}
+async function multipartWallpaper(request,db,bucket,row,meta,key,action){
+ const method=request.method;
+ if(action==='begin'&&method==='POST'){
+  if(['ready','review','approved','published','unlisted'].includes(row.state))return json({ready:true});
+  if(row.state==='uploading'&&meta?.upload_id&&row.updated_at>Date.now()-15*60000)return json({partSize:PART_SIZE,parts:JSON.parse(meta.parts),uploadId:meta.upload_id});
+  const lock=await db.prepare("UPDATE creator_videos SET state='uploading',updated_at=? WHERE id=? AND (state IN ('reserved','failed') OR (state IN ('uploading','verifying') AND updated_at<?))").bind(Date.now(),row.id,Date.now()-15*60000).run();if(!changed(lock))return json({error:'正在保存，请稍后重试。'},409);
+  try{if(meta?.upload_id)await bucket.resumeMultipartUpload(key,meta.upload_id).abort().catch(()=>{});
+   const upload=await bucket.createMultipartUpload(key,{httpMetadata:{contentType:row.mime}});
+   await db.prepare("INSERT INTO wallpaper_media(id,mime,upload_id,parts) VALUES(?,?,?,'{}') ON CONFLICT(id) DO UPDATE SET upload_id=excluded.upload_id,parts='{}'").bind(row.id,row.mime,upload.uploadId).run();return json({partSize:PART_SIZE,parts:{},uploadId:upload.uploadId});
+  }catch(e){await db.prepare("UPDATE creator_videos SET state='failed' WHERE id=?").bind(row.id).run();return json({error:'无法开始上传，请重试。'},503);}
+ }
+ if(!meta?.upload_id||row.state!=='uploading')return json({error:'请重新开始上传。'},409);
+ const upload=bucket.resumeMultipartUpload(key,meta.upload_id);
+ if(action==='part'&&method==='PUT'){
+  const n=Number(new URL(request.url).searchParams.get('n')),count=Math.ceil(row.size/PART_SIZE);
+  if(!Number.isInteger(n)||n<1||n>count||request.headers.get('X-Upload-Id')!==meta.upload_id)return json({error:'上传分块无效。'},400);
+  const size=Math.min(PART_SIZE,row.size-(n-1)*PART_SIZE);
+  try{const bytes=await limitedBody(request,size);if(bytes.length!==size)throw Error('分块不完整。');
+   const part=await upload.uploadPart(n,bytes);
+   // JSON patch preserves other parts when requests finish concurrently.
+   const saved=await db.prepare("UPDATE wallpaper_media SET parts=json_set(parts,?,json(?)) WHERE id=? AND upload_id=? AND EXISTS(SELECT 1 FROM creator_videos WHERE id=? AND state='uploading')").bind('$."'+n+'"',JSON.stringify(part),row.id,meta.upload_id,row.id).run();if(!changed(saved))return json({error:'上传状态已改变，请重试。'},409);
+   await db.prepare("UPDATE creator_videos SET updated_at=? WHERE id=? AND state='uploading'").bind(Date.now(),row.id).run();return json({ok:true});
+  }catch(e){return json({error:e.message||'分块上传失败，请重试。'},400);}
+ }
+ if(action==='complete'&&method==='POST'){
+  const parts=JSON.parse(meta.parts),count=Math.ceil(row.size/PART_SIZE);if(Object.keys(parts).length!==count)return json({error:'尚有分块未完成，请重试。'},409);
+  const lock=await db.prepare("UPDATE creator_videos SET state='verifying',updated_at=? WHERE id=? AND state='uploading'").bind(Date.now(),row.id).run();if(!changed(lock))return json({error:'正在校验，请稍后刷新。'},409);
+  try{await upload.complete(Array.from({length:count},(_,i)=>parts[i+1]));const object=await bucket.get(key);if(!object)throw Error('文件暂时无法读取。');await verifyWallpaper(object,row);
+   await db.prepare("UPDATE creator_videos SET state='ready',updated_at=? WHERE id=? AND state='verifying'").bind(Date.now(),row.id).run();return json({ok:true,state:'ready'});
+  }catch(e){await bucket.delete(key).catch(()=>{});await upload.abort().catch(()=>{});await db.prepare("UPDATE creator_videos SET state='failed',updated_at=? WHERE id=? AND state='verifying'").bind(Date.now(),row.id).run();return json({error:e.message||'校验失败，请重试。'},400);}
+ }
+ return json({error:'不支持这个操作。'},405);
+}
 async function handleVideos(request,env,user,path){
  await videoTable(env.DB);await reviewTable(env.DB);const db=env.DB,bucket=env.CREATOR_ASSETS;
  if(!bucket)return json({error:'文件存储暂时不可用。'},503);
  if(path==='/api/videos'){
-  if(request.method==='GET'){const items=(await db.prepare('SELECT id,title,description,size,poster,state,created_at,(SELECT reason FROM video_reviews WHERE video_id=creator_videos.id) AS review_reason FROM creator_videos WHERE user_id=? ORDER BY created_at DESC').bind(user.id).all()).results;return json({items,limits:{file:VIDEO_MAX,account:USER_VIDEO_MAX},used:items.reduce((n,x)=>n+x.size+65536,0)});}
+  if(request.method==='GET'){const items=(await db.prepare('SELECT id,title,description,size,sha256,poster,state,created_at,COALESCE((SELECT mime FROM wallpaper_media WHERE id=creator_videos.id),\'video/mp4\') AS mime,(SELECT reason FROM video_reviews WHERE video_id=creator_videos.id) AS review_reason FROM creator_videos WHERE user_id=? ORDER BY created_at DESC').bind(user.id).all()).results;return json({items,limits:{file:VIDEO_MAX}});}
   if(request.method==='POST'){
-   const b=await videoJSON(request);if(!b||typeof b.title!=='string'||!b.title.trim()||b.title.length>100||!Number.isSafeInteger(b.size)||b.size<32||b.size>VIDEO_MAX||! /^[a-f0-9]{64}$/.test(b.sha256||''))return json({error:'请选择 25 MB 以内的 MP4，并填写标题。'},400);
+   const b=await videoJSON(request);if(!b||typeof b.title!=='string'||!b.title.trim()||b.title.length>100||!Number.isSafeInteger(b.size)||b.size<32||b.size>VIDEO_MAX||!['video/mp4','image/png','image/jpeg'].includes(b.mime||'video/mp4')||! /^[a-f0-9]{64}$/.test(b.sha256||''))return json({error:'请选择 200 MB 以内的 MP4、PNG 或 JPG，并填写标题。'},400);
    const poster=typeof b.poster==='string'?b.poster:'';if(poster.length>60000||poster&&!/^data:image\/jpeg;base64,\/9j\/[A-Za-z0-9+/=]+$/.test(poster))return json({error:'封面无效。'},400);
    const id=random(),now=Date.now();
-   const result=await db.prepare(`INSERT INTO creator_videos(id,user_id,title,size,sha256,poster,state,created_at,updated_at)
-    SELECT ?,?,?,?,?,?,'reserved',?,? WHERE
-    (SELECT COALESCE(SUM(size+65536),0) FROM creator_videos WHERE user_id=?)+? <= ? AND
-    (SELECT COALESCE(SUM(size+65536),0) FROM creator_videos)+? <= ? AND
-    COALESCE((SELECT n FROM video_upload_daily WHERE user_id=? AND day=?),0)<20`).bind(id,user.id,b.title.trim(),b.size,b.sha256,poster,now,now,user.id,b.size+65536,USER_VIDEO_MAX,b.size+65536,SITE_VIDEO_MAX,user.id,Math.floor(now/86400000)).run();
-   if(!changed(result))return json({error:'当前上传额度不足：每人 250 MB、每天最多 20 次新上传，或全站容量已达上限。'},429);return json({id,state:'reserved'});
+   const [result]=await db.batch([db.prepare(`INSERT INTO creator_videos(id,user_id,title,size,sha256,poster,state,created_at,updated_at)
+    SELECT ?,?,?,?,?,?,'reserved',?,? WHERE COALESCE((SELECT n FROM video_upload_daily WHERE user_id=? AND day=?),0)<20`).bind(id,user.id,b.title.trim(),b.size,b.sha256,poster,now,now,user.id,Math.floor(now/86400000)),db.prepare('INSERT INTO wallpaper_media(id,mime) SELECT ?,? WHERE EXISTS(SELECT 1 FROM creator_videos WHERE id=?)').bind(id,b.mime||'video/mp4',id)]);
+   if(!changed(result))return json({error:'今天的新上传较多，请明天再试（每天最多 20 次）。'},429);
+   return json({id,state:'reserved'});
   }
  }
- const match=path.match(/^\/api\/videos\/([a-f0-9]{64})(?:\/(content|submit|publish|unlist))?$/);if(!match)return json({error:'找不到这件作品。'},404);
- const row=await db.prepare('SELECT * FROM creator_videos WHERE id=? AND user_id=?').bind(match[1],user.id).first();if(!row)return json({error:'找不到这件作品。'},404);const key='videos/'+row.user_id+'/'+row.id+'.mp4',action=match[2];
+ const match=path.match(/^\/api\/videos\/([a-f0-9]{64})(?:\/(content|submit|publish|unlist|begin|part|complete))?$/);if(!match)return json({error:'找不到这件作品。'},404);
+ const row=await db.prepare('SELECT * FROM creator_videos WHERE id=? AND user_id=?').bind(match[1],user.id).first();if(!row)return json({error:'找不到这件作品。'},404);const metadata=await db.prepare('SELECT * FROM wallpaper_media WHERE id=?').bind(row.id).first();row.mime=metadata?.mime||'video/mp4';const key='videos/'+row.user_id+'/'+row.id+'.mp4',action=match[2];
+ if(['begin','part','complete'].includes(action))return multipartWallpaper(request,db,bucket,row,metadata,key,action);
  if(action==='content'&&request.method==='PUT'){
   if(['ready','review','approved','published','unlisted'].includes(row.state))return json({ok:true,state:row.state});
   const lock=await db.prepare("UPDATE creator_videos SET state='uploading',updated_at=? WHERE id=? AND (state IN ('reserved','failed') OR (state='uploading' AND updated_at<?))").bind(Date.now(),row.id,Date.now()-15*60000).run();if(!changed(lock))return json({error:'文件正在处理中，请稍后再试。'},409);
   try{
-   if(request.headers.get('Content-Type')!=='video/mp4')throw Error('请选择 MP4 视频。');
+   if(row.size>PART_SIZE)throw Error('大文件请刷新网页后使用分块上传。');if(request.headers.get('Content-Type')!==row.mime)throw Error('文件类型不符。');
    const bytes=await limitedBody(request,Math.min(row.size,VIDEO_MAX));if(bytes.length!==row.size)throw Error('文件传输不完整，请重试。');
    const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');if(digest!==row.sha256)throw Error('文件与上次选择的不一致，请重新选择原文件。');
-   if(!mp4Container(bytes))throw Error('无法识别 MP4 文件结构，请重新导出视频。');
-   await bucket.put(key,bytes,{httpMetadata:{contentType:'video/mp4'}});
+   if(row.mime==='video/mp4'?!mp4Container(bytes):!imageHeader(bytes,row.mime))throw Error('无法识别文件结构，请重新导出。');
+   await bucket.put(key,bytes,{httpMetadata:{contentType:row.mime}});
    await db.prepare("UPDATE creator_videos SET state='ready',updated_at=? WHERE id=?").bind(Date.now(),row.id).run();return json({ok:true,state:'ready'});
   }catch(e){await db.prepare("UPDATE creator_videos SET state='failed',updated_at=? WHERE id=?").bind(Date.now(),row.id).run();return json({error:e.message||'上传失败，请重试。'},400);}
  }
  if(action==='content'&&request.method==='GET'){
-  if(!['ready','review','approved','published','unlisted'].includes(row.state))return json({error:'视频尚未上传完成。'},409);
+  if(!['ready','review','approved','published','unlisted'].includes(row.state))return json({error:'壁纸尚未上传完成。'},409);
   const range=request.headers.get('Range');let options={},start=0,end=row.size-1;
   if(range){const m=range.match(/^bytes=(\d*)-(\d*)$/);if(!m||!m[1]&&!m[2])return new Response(null,{status:416,headers:{'Content-Range':'bytes */'+row.size}});if(m[1]){start=Number(m[1]);end=m[2]?Math.min(Number(m[2]),end):end;}else start=Math.max(0,row.size-Number(m[2]));if(start>end||start>=row.size)return new Response(null,{status:416,headers:{'Content-Range':'bytes */'+row.size}});options={range:{offset:start,length:end-start+1}};}
-  const object=await bucket.get(key,options);if(!object)return json({error:'视频暂时无法读取。'},404);
-  const headers={'Content-Type':'video/mp4','Content-Length':String(end-start+1),'Accept-Ranges':'bytes','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'};if(range)headers['Content-Range']=`bytes ${start}-${end}/${row.size}`;return new Response(object.body,{status:range?206:200,headers});
+  const object=await bucket.get(key,options);if(!object)return json({error:'壁纸暂时无法读取。'},404);
+  const headers={'Content-Type':row.mime,'Content-Length':String(end-start+1),'Accept-Ranges':'bytes','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'};if(range)headers['Content-Range']=`bytes ${start}-${end}/${row.size}`;return new Response(object.body,{status:range?206:200,headers});
  }
  if(['publish','unlist'].includes(action)&&request.method==='POST'){
  const from=action==='publish'?'approved':'published',to=action==='publish'?'published':'unlisted';
@@ -120,7 +171,7 @@ async function handleVideos(request,env,user,path){
  return changed(result)?json({ok:true,state:to}):json({error:'作品状态已改变，请刷新后再试。'},409);
  }
  if(action==='submit'&&request.method==='POST'){
-  if(!['ready','review','unlisted'].includes(row.state))return json({error:'请先完成视频上传。'},409);
+  if(!['ready','review','unlisted'].includes(row.state))return json({error:'请先完成壁纸上传。'},409);
   const update=await db.prepare("UPDATE creator_videos SET state='review',updated_at=? WHERE id=? AND state IN ('ready','review','unlisted')").bind(Date.now(),row.id).run();if(!changed(update))return json({error:'作品状态已改变，请刷新。'},409);return json({ok:true,state:'review'});
  }
  if(!action&&request.method==='PATCH'){
@@ -129,7 +180,7 @@ async function handleVideos(request,env,user,path){
   await db.prepare('UPDATE creator_videos SET title=?,description=?,updated_at=? WHERE id=? AND state NOT IN ("review","approved","published","deleting")').bind(b.title.trim(),b.description.trim(),Date.now(),row.id).run();return json({ok:true});
  }
  if(!action&&request.method==='DELETE'){
-  if(row.state==='uploading')return json({error:'视频正在上传，请稍后再移除。'},409);
+  if(['uploading','verifying'].includes(row.state))return json({error:'视频正在上传，请稍后再移除。'},409);
   const lock=await db.prepare("UPDATE creator_videos SET state='deleting' WHERE id=? AND state NOT IN ('uploading','deleting')").bind(row.id).run();if(!changed(lock))return json({error:'文件处理中，请稍后再移除。'},409);
   try{await bucket.delete(key);await db.prepare("DELETE FROM creator_videos WHERE id=? AND user_id=? AND state='deleting'").bind(row.id,user.id).run();return json({ok:true});}catch{await db.prepare("UPDATE creator_videos SET state=? WHERE id=? AND state='deleting'").bind(row.state,row.id).run();return json({error:'移除失败，请重试。'},503);}
  }
@@ -169,12 +220,12 @@ export async function onRequest({request,env}) {
       return redirect(ORIGIN+'/#downloads',[cookie('__Host-ccbcm-state','',0),cookie('__Host-ccbcm-session',session,30*86400)]);
     }
     if(path==='/api/published-videos'&&request.method==='GET'){
-      await videoTable(env.DB);return json({items:(await env.DB.prepare("SELECT v.id,v.title,v.description,v.poster,v.size,u.login FROM creator_videos v JOIN users u ON u.id=v.user_id WHERE v.state='published' ORDER BY v.updated_at DESC").bind().all()).results});
+      await videoTable(env.DB);return json({items:(await env.DB.prepare("SELECT v.id,v.title,v.description,v.poster,v.size,COALESCE((SELECT mime FROM wallpaper_media WHERE id=v.id),'video/mp4') AS mime,u.login FROM creator_videos v JOIN users u ON u.id=v.user_id WHERE v.state='published' ORDER BY v.updated_at DESC").bind().all()).results});
     }
     const staticMatch=path.match(/^\/api\/published-videos\/(cat|lines|caffeine|tux)\/manifest$/);
     if(staticMatch&&request.method==='GET')return json(({"cat": {"sha256": "ee71ada72d5e0649274453d926ac229f91a46a92936af0e274346458fccc6137", "size": 204031}, "lines": {"sha256": "4d1d69b3fab9eb3f0779f6f15dfde918c99e2a2b53878d7badc7abae5744523b", "size": 1542233}, "caffeine": {"sha256": "aa4084a66cf240ac336604916d86e62133a87c0c3355717b26fa63dda2c4b20d", "size": 216647}, "tux": {"sha256": "7265a930a86724c4018712ceb7b9d5c475c205b7672a8fbd33f9343b560124dd", "size": 220612}})[staticMatch[1]]);
     const manifest=path.match(/^\/api\/published-videos\/([a-f0-9]{64})\/manifest$/);
-    if(manifest&&request.method==='GET'){await videoTable(env.DB);const row=await env.DB.prepare("SELECT sha256,size FROM creator_videos WHERE id=? AND state='published'").bind(manifest[1]).first();return row?json(row):json({error:'壁纸未上架或已下架。'},404);}
+    if(manifest&&request.method==='GET'){await videoTable(env.DB);const row=await env.DB.prepare("SELECT sha256,size,COALESCE((SELECT mime FROM wallpaper_media WHERE id=creator_videos.id),'video/mp4') AS mime FROM creator_videos WHERE id=? AND state='published'").bind(manifest[1]).first();return row?json(row):json({error:'壁纸未上架或已下架。'},404);}
     const publicVideo=path.match(/^\/api\/published-videos\/([a-f0-9]{64})\/content$/);
     if(publicVideo&&request.method==='GET'){
       await videoTable(env.DB);const row=await env.DB.prepare("SELECT user_id FROM creator_videos WHERE id=? AND state='published'").bind(publicVideo[1]).first();

@@ -102,7 +102,7 @@ const objects=new Map();env.CREATOR_ASSETS={put:async(k,bytes)=>{objects.set(k,b
 const mp4=readFileSync(new URL('../../gallery/media/blue.mp4',import.meta.url));
 const meta={title:'视频测试',size:mp4.length,sha256:digest(mp4)};
 assert.equal((await req('videos')).status,401);
-assert.equal((await req('videos','POST',A,{...meta,size:26*1024*1024})).status,400);
+assert.equal((await req('videos','POST',A,{...meta,size:201*1024*1024})).status,400);
 let reservation=await req('videos','POST',A,meta);assert.equal(reservation.status,200);const vid=(await reservation.json()).id;
 assert.equal((await (await req('videos','GET',B)).json()).items.length,0);
 assert.equal((await req('videos/'+vid,'PATCH',B,{title:'盗改',description:''})).status,404);
@@ -171,6 +171,7 @@ assert.equal((await req('videos/'+vid,'DELETE',A)).status,200);assert.equal(obje
 assert.equal(sql.prepare('SELECT n FROM video_upload_daily WHERE user_id=?').get('alice').n,1);
 sql.prepare('UPDATE video_upload_daily SET n=20 WHERE user_id=?').run('alice');assert.equal((await req('videos','POST',A,meta)).status,429);
 const invalid=Buffer.alloc(100);const bad=(await (await req('videos','POST',B,{title:'伪视频',size:100,sha256:digest(invalid)})).json()).id;assert.equal((await upload(bad,invalid,B)).status,400);assert.equal(objects.size,0);
+await (await import('./test-media.mjs')).testMedia({env,req,sql,digest,A,B,onRequest});
 assert.equal((await req('logout','POST','a'.repeat(64))).status,200);
 assert.equal((await req('downloads','GET','a'.repeat(64))).status,401);
 const login=await req('auth/github');assert.equal(login.status,302);const auth=new URL(login.headers.get('Location'));assert.equal(auth.origin,'https://github.com');assert.equal(auth.searchParams.has('scope'),false);assert.ok(login.headers.get('Set-Cookie').includes('HttpOnly; Secure; SameSite=Lax'));
@@ -178,3 +179,4 @@ assert.equal((await req('auth/callback?code=x&state=wrong')).headers.get('Locati
 sql.prepare('UPDATE sessions SET expires_at=0').run();assert.equal((await req('downloads','GET','b'.repeat(64))).status,401);
 assert.equal((await (await onRequest({env:{},request:new Request('https://ccbcm.net/api/account')})).json()).ready,false);
 console.log('PASS: profile validation/public fields, private favorites/isolation/CSRF,  unauthenticated requests, CSRF, invalid assets, user isolation, duplicate downloads, logout, expiry, OAuth state and unconfigured service');
+
