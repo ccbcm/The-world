@@ -31,5 +31,12 @@ export async function testMedia({env,req,sql,digest,A,B,onRequest}) {
  }
  const png=readFileSync('gallery/media/cat.png');const mismatch=await reserve(png,'image/png','0'.repeat(64));assert.equal((await transfer(mismatch,png)).status,400);
  const disguised=await reserve(png,'video/mp4');assert.equal((await transfer(disguised,png)).status,400);
+ const abandoned=await reserve(png,'image/png');const first=await (await req('videos/'+abandoned+'/begin','POST',A)).json();
+ assert.equal((await req('videos/'+abandoned,'DELETE',A)).status,409);
+ assert.equal((await (await req('videos/'+abandoned+'/begin','POST',A)).json()).uploadId,first.uploadId);
+ sql.prepare('UPDATE creator_videos SET updated_at=? WHERE id=?').run(Date.now()-16*60000,abandoned);
+ const restarted=await (await req('videos/'+abandoned+'/begin','POST',A)).json();assert.notEqual(restarted.uploadId,first.uploadId);assert.equal(uploads.has(first.uploadId),false);
+ sql.prepare('UPDATE creator_videos SET updated_at=? WHERE id=?').run(Date.now()-16*60000,abandoned);
+ assert.equal((await req('videos/'+abandoned,'DELETE',A)).status,200);assert.equal(uploads.has(restarted.uploadId),false);assert.equal(sql.prepare('SELECT id FROM wallpaper_media WHERE id=?').get(abandoned),undefined);
  console.log('PASS: 200 MiB multipart boundary, 8 MiB maximum part, no account capacity, PNG/JPEG review/publish/manifest/content/download, cross-account denial, incomplete and corrupt uploads');
 }

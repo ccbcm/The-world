@@ -82,7 +82,7 @@ function imageHeader(b,mime){
 }
 // Scan top-level MP4 boxes while hashing the R2 stream. Memory is bounded by a stream chunk.
 async function verifyWallpaper(object,row){
- const digest=new crypto.DigestStream('SHA-256'),writer=digest.getWriter(),reader=object.body.getReader();
+ const digest=new crypto.DigestStream('SHA-256'),writer=digest.getWriter(),reader=object.body.getReader();digest.digest.catch(()=>{});
  let total=0,skip=0,header=[],first=[],tail=new Uint8Array(),boxCount=0;const boxes=new Set();
  try{while(true){const {done,value}=await reader.read();if(done)break;total+=value.length;if(total>row.size)throw Error('文件大小不符。');
   if(first.length<40)first.push(...value.slice(0,40-first.length));
@@ -180,9 +180,9 @@ async function handleVideos(request,env,user,path){
   await db.prepare('UPDATE creator_videos SET title=?,description=?,updated_at=? WHERE id=? AND state NOT IN ("review","approved","published","deleting")').bind(b.title.trim(),b.description.trim(),Date.now(),row.id).run();return json({ok:true});
  }
  if(!action&&request.method==='DELETE'){
-  if(['uploading','verifying'].includes(row.state))return json({error:'视频正在上传，请稍后再移除。'},409);
-  const lock=await db.prepare("UPDATE creator_videos SET state='deleting' WHERE id=? AND state NOT IN ('uploading','deleting')").bind(row.id).run();if(!changed(lock))return json({error:'文件处理中，请稍后再移除。'},409);
-  try{await bucket.delete(key);await db.prepare("DELETE FROM creator_videos WHERE id=? AND user_id=? AND state='deleting'").bind(row.id,user.id).run();return json({ok:true});}catch{await db.prepare("UPDATE creator_videos SET state=? WHERE id=? AND state='deleting'").bind(row.state,row.id).run();return json({error:'移除失败，请重试。'},503);}
+  if(['uploading','verifying'].includes(row.state)&&row.updated_at>Date.now()-15*60000)return json({error:'壁纸正在上传，请稍后再移除。'},409);
+  const lock=await db.prepare("UPDATE creator_videos SET state='deleting' WHERE id=? AND state!='deleting' AND (state NOT IN ('uploading','verifying') OR updated_at<?)").bind(row.id,Date.now()-15*60000).run();if(!changed(lock))return json({error:'文件处理中，请稍后再移除。'},409);
+  try{if(metadata?.upload_id)await bucket.resumeMultipartUpload(key,metadata.upload_id).abort().catch(()=>{});await bucket.delete(key);await db.batch([db.prepare("DELETE FROM creator_videos WHERE id=? AND user_id=? AND state='deleting'").bind(row.id,user.id),db.prepare('DELETE FROM wallpaper_media WHERE id=?').bind(row.id)]);return json({ok:true});}catch{await db.prepare("UPDATE creator_videos SET state=? WHERE id=? AND state='deleting'").bind(row.state,row.id).run();return json({error:'移除失败，请重试。'},503);}
  }
  return json({error:'不支持这个操作。'},405);
 }
