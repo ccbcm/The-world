@@ -186,6 +186,23 @@ async function handleVideos(request,env,user,path){
  }
  return json({error:'不支持这个操作。'},405);
 }
+async function discoveryClicks(request,env){
+ const db=env.DB,day=Math.floor((Date.now()+8*3600000)/86400000);
+ await videoTable(db);
+ await db.prepare('CREATE TABLE IF NOT EXISTS discovery_clicks (day INTEGER NOT NULL,work_id TEXT NOT NULL,visitor TEXT NOT NULL,PRIMARY KEY(day,work_id,visitor))').bind().run();
+ if(request.method==='GET'){
+  const items=(await db.prepare("SELECT work_id AS id,COUNT(*) AS clicks FROM discovery_clicks WHERE day=? AND (work_id IN ('blue','cat','lines','caffeine','tux') OR EXISTS(SELECT 1 FROM creator_videos WHERE id=work_id AND state='published')) GROUP BY work_id ORDER BY clicks DESC,work_id LIMIT 2000").bind(day).all()).results;
+  return json({day,items});
+ }
+ if(request.method!=='POST')return json({error:'不支持这个操作。'},405);
+ const b=await bodyJSON(request);if(!b||typeof b.id!=='string'||!ids.has(b.id)&&!await isPublished(db,b.id))return json({error:'作品未公开。'},404);
+ // Count intentional detail opens, never autoplay/impressions. Only a daily salted digest is stored.
+ const ip=request.headers.get('CF-Connecting-IP');if(!ip)return json({ok:true});
+ const visitor=await hash(day+'|'+env.GITHUB_CLIENT_SECRET+'|'+ip+'|'+(request.headers.get('User-Agent')||'').slice(0,256));
+ await db.prepare('INSERT OR IGNORE INTO discovery_clicks(day,work_id,visitor) VALUES(?,?,?)').bind(day,b.id,visitor).run();
+ if(Math.random()<0.02)await db.prepare('DELETE FROM discovery_clicks WHERE day<?').bind(day-7).run();
+ return json({ok:true});
+}
 export async function onRequest({request,env}) {
   const url=new URL(request.url),path=url.pathname;
   const ready=!!(env.DB&&env.GITHUB_CLIENT_ID&&env.GITHUB_CLIENT_SECRET);
@@ -198,6 +215,7 @@ export async function onRequest({request,env}) {
   if(request.method!=='GET'&&request.headers.get('Origin')!==ORIGIN)return json({error:'请求来源不符。'},403);
   let stage="session";
   try {
+    if(path==='/api/discovery')return await discoveryClicks(request,env);
     if(path==='/api/auth/github'&&request.method==='GET') {
       const state=random();const auth=new URL('https://github.com/login/oauth/authorize');auth.searchParams.set('client_id',env.GITHUB_CLIENT_ID);auth.searchParams.set('redirect_uri',ORIGIN+'/api/auth/callback');auth.searchParams.set('state',state);
       return redirect(auth.href,[cookie('__Host-ccbcm-state',state,600)]);
