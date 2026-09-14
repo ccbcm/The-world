@@ -324,7 +324,7 @@ export async function onRequest({request,env}) {
         if(request.method==='GET')return json({items:(await env.DB.prepare('SELECT work_id AS id,created_at AS date FROM favorites WHERE user_id=? ORDER BY created_at DESC').bind(user.id).all()).results});
         if(['POST','DELETE'].includes(request.method)) {
           const b=await bodyJSON(request);
-          if(!b||(!ids.has(b.id)&&!await isPublished(env.DB,b.id)))return json({error:'找不到这件作品。'},400);
+          if(!b||typeof b.id!=='string'||!/^[a-z0-9-]{1,64}$/.test(b.id)||(request.method==='POST'&&!ids.has(b.id)&&!await isPublished(env.DB,b.id)))return json({error:'找不到这件作品。'},400);
           if(request.method==='POST')await env.DB.prepare('INSERT INTO favorites(user_id,work_id,created_at) VALUES(?,?,?) ON CONFLICT(user_id,work_id) DO NOTHING').bind(user.id,b.id,Date.now()).run();
           else await env.DB.prepare('DELETE FROM favorites WHERE user_id=? AND work_id=?').bind(user.id,b.id).run();
           return json({ok:true});
@@ -334,6 +334,14 @@ export async function onRequest({request,env}) {
     if(path==='/api/logout'&&request.method==='POST') {
       await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await hash(cookies(request)['__Host-ccbcm-session'])).run();
       const response=json({ok:true});response.headers.append('Set-Cookie',cookie('__Host-ccbcm-session','',0));return response;
+    }
+    if(path==='/api/library'&&request.method==='GET'){
+      await spaces(env.DB);
+      const items=(await env.DB.prepare(`SELECT work_id AS id,MAX(downloaded) AS downloaded,MAX(favorite) AS favorite,MAX(date) AS date FROM (
+       SELECT work_id,1 AS downloaded,0 AS favorite,created_at AS date FROM downloads WHERE user_id=?
+       UNION ALL SELECT work_id,0 AS downloaded,1 AS favorite,created_at AS date FROM favorites WHERE user_id=?
+      ) GROUP BY work_id ORDER BY favorite DESC,date DESC,work_id`).bind(user.id,user.id).all()).results;
+      return json({items:items.filter(x=>!['waves','clouds','net','city'].includes(x.id))});
     }
     if(path==='/api/downloads'&&request.method==='GET') {
       const result=await env.DB.prepare('SELECT work_id AS id,created_at AS date FROM downloads WHERE user_id=? ORDER BY created_at DESC').bind(user.id).all();return json({items:result.results.filter(x=>!['waves','clouds','net','city'].includes(x.id))});
