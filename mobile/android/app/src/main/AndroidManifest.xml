@@ -1,0 +1,15 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ <uses-permission android:name="android.permission.INTERNET"/>
+ <uses-permission android:name="android.permission.SET_WALLPAPER"/>
+ <uses-feature android:name="android.software.live_wallpaper" android:required="false"/>
+ <application android:label="CCBCM 壁纸预览版" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false" android:usesCleartextTraffic="false">
+  <activity android:name=".MainActivity" android:exported="true">
+   <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+   <intent-filter><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="ccbcm-mobile" android:host="apply"/></intent-filter>
+  </activity>
+  <service android:name=".VideoWallpaper" android:label="CCBCM 动态壁纸" android:permission="android.permission.BIND_WALLPAPER" android:exported="true">
+   <intent-filter><action android:name="android.service.wallpaper.WallpaperService"/></intent-filter>
+   <meta-data android:name="android.service.wallpaper" android:resource="@xml/wallpaper"/>
+  </service>
+ </application>
+</manifest>
