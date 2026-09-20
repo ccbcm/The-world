@@ -24,7 +24,7 @@ export const mobileLayout=()=>mobileDevice()||matchMedia('(max-width:700px)').ma
 export const portraitWork=w=>Number(w.height)>Number(w.width)&&Number(w.width)>0;
 export function mobileUse(w,dialog,escape){
  if(/Android/i.test(navigator.userAgent)&&!/HarmonyOS/i.test(navigator.userAgent)){
-  dialog.querySelector('#detail-body').innerHTML=`<div class="detail-copy mobile-use"><p class="eyebrow">安卓壁纸</p><h2>${escape(w.name)}</h2><p>插件会自动准备壁纸，再打开系统预览。是否同时用于锁屏，由手机系统提供选项。</p><div class="detail-actions"><a class="pill" href="intent://apply/${w.id}#Intent;scheme=ccbcm-mobile;package=net.ccbcm.wallpaper.preview;S.browser_fallback_url=https%3A%2F%2Fccbcm.net%2F%23plugin;end">打开安卓插件</a><a class="pill secondary" href="/downloads/CCBCM-Android-preview.apk?v=media3-2" download>安装安卓预览版</a></div><p class="subtitle">Android 8 及以上。首次使用请安装插件；预览版尚待不同品牌真机验证。</p></div>`;dialog.showModal();return;
+  dialog.querySelector('#detail-body').innerHTML=`<div class="detail-copy mobile-use"><p class="eyebrow">安卓壁纸</p><h2>${escape(w.name)}</h2><p>插件会自动准备壁纸，再打开系统预览。是否同时用于锁屏，由手机系统提供选项。</p><div class="detail-actions"><a class="pill" href="intent://apply/${w.id}#Intent;scheme=ccbcm-mobile;package=net.ccbcm.wallpaper.preview;S.browser_fallback_url=https%3A%2F%2Fccbcm.net%2F%23plugin;end">打开安卓插件</a><a class="pill secondary" href="/downloads/CCBCM-Android-preview.apk?v=preview-3" download>安装安卓预览版</a></div><p class="subtitle">Android 8 及以上。首次使用请安装插件；预览版尚待不同品牌真机验证。</p></div>`;dialog.showModal();return;
  }
  const isApple=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Macintosh/.test(navigator.userAgent));
  const still=w.type==='静态壁纸',url=w.content||`/gallery/media/${w.id}.${still?'png':'mp4'}`;
