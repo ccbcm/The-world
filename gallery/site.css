@@ -90,6 +90,11 @@
 .wallpaper-preview{object-fit:contain!important}
 .video-pick{max-width:100%;white-space:normal}
 @media(max-width:700px){
+ #download-grid{grid-template-columns:minmax(0,1fr)}
+ #app:has(.hero) #grid .cover{aspect-ratio:9/16}
+ .download-card .cover{aspect-ratio:16/10}
+ .download-card .download-actions{align-items:center;min-height:44px}
+ .library-save-note{white-space:nowrap}
  .hero-art:not(.portrait-hero) .hero-open,.hero-art:not(.portrait-hero) .hero-controls{display:none}
  .hero-art.portrait-hero{aspect-ratio:9/16;min-height:0;max-height:70vh;width:min(100%,390px);justify-self:center}
  .detail-actions,.download-actions{gap:12px!important;flex-wrap:wrap}
