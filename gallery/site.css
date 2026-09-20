@@ -123,7 +123,7 @@
  .header nav[aria-label="主导航"] a{white-space:nowrap}
  .header .account-menu{grid-column:2;grid-row:2;justify-self:end;min-width:0;max-width:160px}
  .header .account-menu summary{max-width:160px;min-width:0;padding:8px 10px;gap:8px}
- .header .account-menu summary .account-name{overflow:hidden;text-overflow:ellipsis;min-width:0}
+ .header .account-menu summary span:not(.user-avatar){overflow:hidden;text-overflow:ellipsis;min-width:0}
  .mark svg{width:24px;height:24px}
  .download-actions{gap:12px;flex-wrap:wrap;min-height:44px}
  .download-actions .text-button{white-space:nowrap;min-height:44px}
