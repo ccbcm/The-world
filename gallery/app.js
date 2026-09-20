@@ -22,7 +22,7 @@ document.querySelector('.account-menu').open=false;
 if(route==='creator-review'){renderCreatorReview();return;}
 if(route==='reports'){renderReports();return;}
 if(route==='moderation'){renderModeration();return;}
-if(route==='plugin'){app.innerHTML='<section class="intro-line"><div><h1>让桌面动起来</h1><p class="subtitle">安装一次，之后从桌面或托盘打开。</p></div></section>'+document.querySelector('#plugin-page').innerHTML;return;}
+if(route==='plugin'){app.innerHTML='<section class="intro-line"><div><h1>让桌面动起来</h1><p class="subtitle">选好壁纸，在你的设备上使用。</p></div></section>'+'<div class="plugin-platforms">'+document.querySelector('#plugin-page').innerHTML+'</div>';return;}
 if(['studio','me','settings'].includes(route)){renderPersonal(route);return;}
 if(route==='saved'){history.replaceState(null,'','#downloads');route='downloads';}if(route.startsWith('people/')){renderPublic(route.slice(7));return;}if(!['discover','wallpapers','creators','downloads','saved'].includes(route)&&!route.startsWith('creator/')){app.innerHTML='<div class="empty"><h1>没有找到这个页面</h1><p>你可以回到发现，或从个人菜单进入自己的空间。</p><a class="pill" href="#discover">返回发现</a></div>';return;}
 if(route==='downloads'){renderDownloads();return}

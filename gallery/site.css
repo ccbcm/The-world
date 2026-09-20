@@ -90,6 +90,9 @@
 .wallpaper-preview{object-fit:contain!important}
 .video-pick{max-width:100%;white-space:normal}
 @media(max-width:700px){
+ .plugin-platforms{display:flex;flex-direction:column}
+ .plugin-platforms .android-package{order:-1}
+ .windows-package .plugin-actions .secondary{display:none}
  #download-grid{grid-template-columns:minmax(0,1fr)}
  #app:has(.hero) #grid .cover{aspect-ratio:9/16}
  .download-card .cover{aspect-ratio:16/10}
