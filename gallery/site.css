@@ -107,3 +107,25 @@
  .plugin-actions .pill{white-space:normal;text-align:center}
  .upload-panel{padding:20px!important}
 }
+.mark{flex:0 0 auto;line-height:1;letter-spacing:0;overflow:hidden;display:grid;place-items:center}
+.mark svg{display:block;width:28px;height:28px}
+.hero-label>div{max-width:100%}
+.hero-controls{gap:6px;padding:5px 7px}
+.hero-controls button{width:36px;height:36px;flex:0 0 36px}
+.search>span{display:grid;place-items:center;flex:0 0 18px;width:18px;height:18px;line-height:1}
+.search input{min-width:0}
+@media(max-width:700px){
+ .header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px 10px;padding:18px 20px;min-height:0}
+ .header .brand{grid-column:1;grid-row:1;min-width:0;gap:9px;line-height:1}
+ .header-right{display:contents}
+ .header .publish-link{grid-column:2;grid-row:1;justify-self:end;min-height:40px}
+ .header nav[aria-label="主导航"]{grid-column:1;grid-row:2;order:initial;justify-content:flex-start;width:auto;gap:12px;min-width:0}
+ .header nav[aria-label="主导航"] a{white-space:nowrap}
+ .header .account-menu{grid-column:2;grid-row:2;justify-self:end;min-width:0;max-width:160px}
+ .header .account-menu summary{max-width:160px;min-width:0;padding:8px 10px;gap:8px}
+ .header .account-menu summary .account-name{overflow:hidden;text-overflow:ellipsis;min-width:0}
+ .mark svg{width:24px;height:24px}
+ .download-actions{gap:12px;flex-wrap:wrap;min-height:44px}
+ .download-actions .text-button{white-space:nowrap;min-height:44px}
+ #toast{max-width:calc(100vw - 32px);text-align:center;overflow-wrap:anywhere}
+}
