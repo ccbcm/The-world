@@ -172,6 +172,7 @@ assert.equal(sql.prepare('SELECT n FROM video_upload_daily WHERE user_id=?').get
 sql.prepare('UPDATE video_upload_daily SET n=20 WHERE user_id=?').run('alice');assert.equal((await req('videos','POST',A,meta)).status,429);
 const invalid=Buffer.alloc(100);const bad=(await (await req('videos','POST',B,{title:'伪视频',size:100,sha256:digest(invalid)})).json()).id;assert.equal((await upload(bad,invalid,B)).status,400);assert.equal(objects.size,0);
 await (await import('./test-media.mjs')).testMedia({env,req,sql,digest,A,B,onRequest});
+await (await import('./test-hd-covers.mjs')).testCovers({env,req,sql,digest,A,B,onRequest});
 assert.equal((await req('logout','POST','a'.repeat(64))).status,200);
 assert.equal((await req('downloads','GET','a'.repeat(64))).status,401);
 const login=await req('auth/github');assert.equal(login.status,302);const auth=new URL(login.headers.get('Location'));assert.equal(auth.origin,'https://github.com');assert.equal(auth.searchParams.has('scope'),false);assert.ok(login.headers.get('Set-Cookie').includes('HttpOnly; Secure; SameSite=Lax'));

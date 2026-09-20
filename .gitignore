@@ -4,3 +4,8 @@ dist/
 *.log
 
 node_modules/
+authoring/wallpaper-player/vlc/
+android-build-logs.zip
+android-preview-artifact.zip
+mobile/android/.gradle/
+mobile/android/**/build/

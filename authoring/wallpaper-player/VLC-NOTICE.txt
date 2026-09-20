@@ -1,0 +1,9 @@
+CCBCM uses VideoLAN LibVLC Windows 3.0.23.1, dynamically linked and unmodified.
+Copyright VideoLAN and VLC contributors. Licensed LGPL-2.1-or-later (see COPYING.LIB).
+Package: https://www.nuget.org/packages/VideoLAN.LibVLC.Windows/3.0.23.1
+Package source/build recipes: https://code.videolan.org/videolan/libvlc-nuget
+VLC source: https://code.videolan.org/videolan/vlc/-/tree/3.0.23
+Contributed dependency sources: https://download.videolan.org/pub/videolan/contrib/
+Users may replace the native DLLs/plugins in the vlc directory with compatible
+modified builds and reverse engineer the linking interface to debug modifications.
+CCBCM source and reproducible packaging script: https://github.com/ccbcm/The-world

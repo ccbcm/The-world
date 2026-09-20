@@ -1,0 +1,20 @@
+{
+  "parts": [
+    {
+      "sha256": "448b2e424f3429e1440d5368970f6dc7431a1f5c7ad76354849877002cf7f4d0",
+      "size": 20971520,
+      "name": "vlc-3.0.23.1-0.bin"
+    },
+    {
+      "sha256": "334a042f6abfa8d74b43e7864d1b74c9ed7dfec36e48263df0089a131c6d5da6",
+      "size": 20971520,
+      "name": "vlc-3.0.23.1-1.bin"
+    },
+    {
+      "sha256": "4ea7c5d64e11499aa4e0b0f6f22cca0f718fcf1e31be5f36333b9b639a4ca31e",
+      "size": 5336175,
+      "name": "vlc-3.0.23.1-2.bin"
+    }
+  ],
+  "version": "3.0.23.1"
+}

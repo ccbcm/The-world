@@ -9,7 +9,8 @@ export function discoveryOrder(works,ranking){
  return [...popular,...rest];
 }
 export function startHero(host,works,ranking,{image,escape}){
- const list=discoveryOrder(works.filter(w=>w.video),ranking);if(!host||!list.length)return ()=>{};
+ const list=discoveryOrder(works.filter(w=>w.video),ranking);if(!host)return ()=>{};if(!list.length){host.innerHTML='<div class="hero-empty"><span aria-hidden="true">✦</span><p>为这块屏幕，留一片风景。</p><a href="#studio" class="pill secondary">分享竖屏壁纸</a></div>';return ()=>{};}
+ host.classList.toggle('portrait-hero',list[0].height>list[0].width);
  const open=host.querySelector('.hero-open'),controls=host.querySelector('.hero-controls'),toggle=controls.querySelector('[data-hero-pause]'),counter=controls.querySelector('.hero-position');
  const reduced=matchMedia('(prefers-reduced-motion: reduce)');let index=0,paused=reduced.matches,visible=true,hover=false,focused=false,timer=null,video=null,dead=false;
  const canPlay=()=>!dead&&!paused&&!document.hidden&&visible&&!document.querySelector('dialog[open]');

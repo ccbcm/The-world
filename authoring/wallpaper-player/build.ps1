@@ -4,5 +4,6 @@ $refs=@('System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Form
 $argsList=@('/nologo','/win32manifest:app.manifest','/target:winexe','/platform:x64','/optimize+','/out:CCBCMWallpaper.exe')
 foreach($r in $refs){$argsList+='/reference:'+(Join-Path $framework $r)}
 $argsList+='Player.cs'
+$argsList+='VlcPlayer.cs'
 & (Join-Path $framework 'csc.exe') @argsList
 if($LASTEXITCODE -ne 0){throw 'Build failed'}

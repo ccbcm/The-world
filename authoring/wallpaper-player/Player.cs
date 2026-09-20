@@ -71,11 +71,12 @@ namespace Ccbcm {
  public class Player:Application {
   static string Dir=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"CCBCM","Wallpaper");
   static string Settings=Path.Combine(Dir,"settings.json"),Sid=WindowsIdentity.GetCurrent().User.Value,Pipe="CCBCM.Wallpaper."+Sid;
-  Config config=new Config();Surface wallpaper;Window settingsWindow;MediaElement media;Forms.NotifyIcon tray;DispatcherTimer timer;IntPtr hwnd,parent;
+  Config config=new Config();Surface wallpaper;Window settingsWindow;VlcPlayer media;Forms.NotifyIcon tray;DispatcherTimer timer;IntPtr hwnd,parent;
   string path="",reason="未选择壁纸";bool manual,locked,paused=true,released,test,desktopTest;int ticks;TimeSpan resume;DateTime pauseAt;Stopwatch launch=Stopwatch.StartNew(),switchWatch=new Stopwatch();double openedMs=-1;bool opened,failed;DateTime previewUntil;TextBlock status;
   static JavaScriptSerializer Json=new JavaScriptSerializer();
   static void Log(string s){try{Directory.CreateDirectory(Dir);File.AppendAllText(Path.Combine(Dir,"player.log"),DateTime.Now.ToString("s")+" "+s+Environment.NewLine);}catch{}}
   [STAThread] public static void Main(string[] args){
+   if(args.Length>0&&args[0]=="--test")Pipe+=".test";
    bool created;using(var mutex=new Mutex(true,"Local\\"+Pipe,out created)){
     string arg=args.Length>0?args[0]:"--settings";
     if(arg.Equals("ccbcm-wallpaper://apply/blue",StringComparison.OrdinalIgnoreCase))arg=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"demo.mp4");else if(arg.StartsWith("ccbcm-wallpaper:",StringComparison.OrdinalIgnoreCase)&&!Regex.IsMatch(arg,@"^ccbcm-wallpaper://apply/(?:[a-f0-9]{64}|cat|lines|caffeine|tux)/?$"))arg="--settings";
@@ -93,7 +94,7 @@ namespace Ccbcm {
     Package pack=Json.Deserialize<Package>(File.ReadAllText(p));if(pack==null||String.IsNullOrWhiteSpace(pack.video))throw new Exception("壁纸包缺少 video 字段。");
     p=Path.GetFullPath(Path.Combine(Path.GetDirectoryName(p),pack.video));
    }
-   string ext=Path.GetExtension(p).ToLowerInvariant();if(p.StartsWith("\\\\")||!(ext==".mp4"||ext==".m4v"||ext==".wmv"))throw new Exception("第一版支持本地 MP4、M4V、WMV 视频。");
+   string ext=Path.GetExtension(p).ToLowerInvariant();if(p.StartsWith("\\\\")||!(ext==".mp4"||ext==".m4v"||ext==".wmv"||ext==".mov"||ext==".mkv"||ext==".webm"||ext==".avi"))throw new Exception("请选择 MP4、M4V、WMV、MOV、MKV、WebM 或 AVI 视频。");
    if(!File.Exists(p))throw new Exception("找不到视频，可能已被移动。请重新选择。");return p;
   }
   void Init(string arg){
@@ -101,9 +102,9 @@ namespace Ccbcm {
    var menu=new Forms.ContextMenuStrip();menu.Items.Add("选择壁纸…",null,delegate{Pick();});menu.Items.Add("暂停 / 继续",null,delegate{manual=!manual;Update();});menu.Items.Add("打开壁纸管理",null,delegate{ShowSettings();});menu.Items.Add("打开官网",null,delegate{Website();});menu.Items.Add("退出",null,delegate{Shutdown();});
    tray=new Forms.NotifyIcon{Icon=System.Drawing.SystemIcons.Application,Text="CCBCM 动态壁纸 · 单击打开",ContextMenuStrip=menu,Visible=!test};tray.MouseClick+=delegate(object o,Forms.MouseEventArgs e){if(e.Button==Forms.MouseButtons.Left)ShowSettings();};
    wallpaper=new Surface{Text="CCBCM Wallpaper Surface",FormBorderStyle=Forms.FormBorderStyle.None,ShowInTaskbar=false,BackColor=System.Drawing.Color.Black,Width=960,Height=540};
-   media=new MediaElement{LoadedBehavior=MediaState.Manual,UnloadedBehavior=MediaState.Manual,Stretch=Stretch.UniformToFill,Volume=0,IsMuted=true};var host=new System.Windows.Forms.Integration.ElementHost{Dock=Forms.DockStyle.Fill,Child=media};wallpaper.Controls.Add(host);
+   media=new VlcPlayer();wallpaper.Controls.Add(media);
    media.MediaOpened+=delegate{opened=true;failed=false;openedMs=switchWatch.Elapsed.TotalMilliseconds;Log("media_open_ms="+openedMs.ToString("F1")+" process_ready_ms="+launch.ElapsedMilliseconds);if(resume>TimeSpan.Zero){media.Position=resume;resume=TimeSpan.Zero;}if(paused)media.Pause();else if(!wallpaper.Visible){wallpaper.Show();FixComposition();}};
-   media.MediaEnded+=delegate{media.Position=TimeSpan.Zero;if(!paused)media.Play();};media.MediaFailed+=delegate(object sender,ExceptionRoutedEventArgs e){failed=true;reason="无法播放：此视频编码暂不支持，请换用 H.264 MP4。";Log(e.ErrorException.ToString());wallpaper.Hide();if(!test)Forms.MessageBox.Show(reason,"CCBCM");};
+   media.MediaEnded+=delegate{media.Position=TimeSpan.Zero;if(!paused)media.Play();};media.MediaFailed+=delegate(string error){failed=true;reason=error;Log(error);wallpaper.Hide();if(!test)Forms.MessageBox.Show(reason,"CCBCM");};
    hwnd=wallpaper.Handle;
    if(!test){var thread=new Thread(Listen){IsBackground=true};thread.Start();SystemEvents.SessionSwitch+=Session;SystemEvents.DisplaySettingsChanged+=Display;}
    timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(1)};timer.Tick+=delegate{ticks++;Update();if(test){if(ticks==3){manual=true;Update();Log("test_pause="+paused);}if(ticks==5){manual=false;Update();Log("test_resume="+!paused);}if(ticks==8){File.WriteAllText(Path.Combine(Dir,"test-result.json"),Json.Serialize(new{opened,openedMs,position=media.Position.TotalSeconds,workingSet=Process.GetCurrentProcess().WorkingSet64,desktopAttached=parent!=IntPtr.Zero&&Native.GetParent(hwnd)==parent,paused}));Shutdown();}}};timer.Start();
@@ -123,13 +124,13 @@ namespace Ccbcm {
    bool bundled=Regex.IsMatch(id,@"^(cat|lines|caffeine|tux)$");string root="https://ccbcm.net/api/published-videos/"+id,cache=Path.Combine(Dir,"Cache");RemoteWallpaper meta;
    using(var response=Fetch(root+"/manifest"))using(var reader=new StreamReader(response.GetResponseStream())){char[] data=new char[4097];int n=0,k;while(n<data.Length&&(k=reader.Read(data,n,data.Length-n))>0)n+=k;if(n>4096)throw new Exception("壁纸信息无效。");meta=new JavaScriptSerializer().Deserialize<RemoteWallpaper>(new string(data,0,n));}
    if(meta==null||meta.size<32||meta.size>200*1024*1024||!Regex.IsMatch(meta.sha256??"",@"^[a-f0-9]{64}$"))throw new Exception("壁纸信息无效。");
-   string mime=meta.mime??(bundled?"image/png":"video/mp4");if(mime!="image/png"&&mime!="image/jpeg"&&mime!="video/mp4")throw new Exception("壁纸格式不支持。");bool still=mime.StartsWith("image/");
-   Directory.CreateDirectory(cache);string file=Path.Combine(cache,id+(still?(mime=="image/jpeg"?".jpg":".png"):".mp4"));if(File.Exists(file)&&new FileInfo(file).Length==meta.size&&DigestFile(file)==meta.sha256)return file;
+   string mime=meta.mime??(bundled?"image/png":"video/mp4");if(mime!="image/png"&&mime!="image/jpeg"&&mime!="video/mp4"&&mime!="video/quicktime"&&mime!="video/webm"&&mime!="video/x-matroska")throw new Exception("壁纸格式不支持。");bool still=mime.StartsWith("image/");
+   Directory.CreateDirectory(cache);string file=Path.Combine(cache,id+(still?(mime=="image/jpeg"?".jpg":".png"):(mime=="video/quicktime"?".mov":mime=="video/webm"?".webm":mime=="video/x-matroska"?".mkv":".mp4")));if(File.Exists(file)&&new FileInfo(file).Length==meta.size&&DigestFile(file)==meta.sha256)return file;
    string temp=file+"."+Guid.NewGuid().ToString("N")+".part";
    try{using(var response=Fetch(bundled?"https://ccbcm.net/gallery/media/"+id+".png":root+"/content")){if(response.ContentType.Split(';')[0]!=mime)throw new Exception("壁纸格式不支持。");using(var input=response.GetResponseStream())using(var output=File.Create(temp)){byte[] buffer=new byte[65536];long total=0;int n;while((n=input.Read(buffer,0,buffer.Length))>0){total+=n;if(total>meta.size)throw new Exception("壁纸大小不符。");output.Write(buffer,0,n);}if(total!=meta.size)throw new Exception("壁纸未获取完整，请重试。");}}
    if(DigestFile(temp)!=meta.sha256)throw new Exception("壁纸完整性校验失败。");if(File.Exists(file))File.Replace(temp,file,null);else File.Move(temp,file);return file;}finally{if(File.Exists(temp))File.Delete(temp);}
   }
-  async void ApplyRemote(string input){int generation=++remoteGeneration;try{string id=input.Substring("ccbcm-wallpaper://apply/".Length).TrimEnd('/');tray.BalloonTipTitle="CCBCM 动态壁纸";tray.BalloonTipText="正在准备壁纸，完成后自动应用。";tray.ShowBalloonTip(3000);string file=await Task.Run(()=>CacheRemote(id));if(generation!=remoteGeneration)return;Open(file);Log("remote_applied="+id);}catch(Exception e){Log("remote_failed="+e.Message);if(generation==remoteGeneration)Forms.MessageBox.Show("壁纸暂时无法使用，请确认作品仍已上架并检查网络。\n"+e.Message,"CCBCM");}}
+  async void ApplyRemote(string input){int generation=++remoteGeneration;try{string id=input.Substring("ccbcm-wallpaper://apply/".Length).TrimEnd('/');tray.BalloonTipTitle="CCBCM 动态壁纸";tray.BalloonTipText="正在准备壁纸，完成后自动应用。";tray.ShowBalloonTip(3000);string file=await Task.Run(()=>CacheRemote(id));if(generation!=remoteGeneration)return;Open(file);Log("remote_open_requested="+id);}catch(Exception e){Log("remote_failed="+e.Message);if(generation==remoteGeneration)Forms.MessageBox.Show("壁纸暂时无法使用，请确认作品仍已上架并检查网络。\n"+e.Message,"CCBCM");}}
   void Update(){if(path==""){if(status!=null&&File.Exists(config.LastFile)&&Regex.IsMatch(Path.GetExtension(config.LastFile),@"^\.(png|jpg|jpeg)$",RegexOptions.IgnoreCase))status.Text="静态壁纸已应用";return;}if(failed){if(status!=null)status.Text=reason;return;}bool battery=config.PauseBattery&&Forms.SystemInformation.PowerStatus.PowerLineStatus==Forms.PowerLineStatus.Offline;bool covered=!test&&DateTime.UtcNow>previewUntil&&config.PauseCovered&&Native.Covered(hwnd);bool stop=manual||locked||battery||covered;
    reason=manual?"已暂停":locked?"锁屏暂停":battery?"电池模式暂停":covered?"桌面被遮挡，已暂停":"正在播放";
    if(!test&&!Native.IsWindow(parent)){media.Pause();wallpaper.Hide();reason="桌面已重启，请重新选择壁纸";stop=true;}
