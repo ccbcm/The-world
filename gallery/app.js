@@ -2,6 +2,7 @@ let libraryItems=[],accountEpoch=0,libraryGeneration=0,favoriteRevision=0;const 
 import {discoveryOrder,startHero} from './discovery.js?v=discovery-1';
 import {extractCover,mobileDevice,mobileLayout,portraitWork,mobileUse} from './media-tools.js?v=media-2';
 let discoveryRanking=[],stopHero=()=>{};
+matchMedia('(max-width:700px)').addEventListener('change',()=>{if(route!=='discover'||!document.querySelector('#grid'))return;renderGrid();stopHero();stopHero=startHero(document.querySelector('.hero-art'),works.filter(w=>mobileLayout()?portraitWork(w):!portraitWork(w)),discoveryRanking,{image,escape});});
 const creators={ccbcm:{name:'CCBCM',letter:'C',note:'我的壁纸与创作，也整理一些注明来源的开源壁纸。',kind:'站内创作者'}};
 const works=[
 {id:"blue",name:"蓝色呼吸",author:"ccbcm",type:"动态壁纸",tag:"极简",cover:"blue.jpg",video:"/gallery/media/blue.mp4",text:"柔和的蓝色渐变，缓缓流动。下载后可在 CCBCM 插件中使用。",original:"CCBCM",source:"https://github.com/ccbcm/The-world",license:"CCBCM 原创演示"},

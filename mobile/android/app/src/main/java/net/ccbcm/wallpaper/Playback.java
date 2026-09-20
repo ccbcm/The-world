@@ -5,6 +5,7 @@ import android.view.SurfaceHolder;
 import androidx.media3.common.*;
 import androidx.media3.exoplayer.*;
 import java.io.File;
+@androidx.annotation.OptIn(markerClass=androidx.media3.common.util.UnstableApi.class)
 final class Playback {
  static ExoPlayer open(Context context,File file,SurfaceHolder surface,Player.Listener listener){
   DefaultRenderersFactory renderers=new DefaultRenderersFactory(context).setEnableDecoderFallback(true);
