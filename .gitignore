@@ -9,3 +9,5 @@ android-build-logs.zip
 android-preview-artifact.zip
 mobile/android/.gradle/
 mobile/android/**/build/
+*.p12
+*.keystore

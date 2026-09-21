@@ -8,7 +8,7 @@ public class PreviewActivity extends Activity implements SurfaceHolder.Callback 
  @Override public void onCreate(Bundle state){super.onCreate(state);
   try{file=new File(getIntent().getStringExtra("path"));if(!file.getCanonicalFile().getParentFile().equals(getFilesDir().getCanonicalFile())||!file.isFile())throw new Exception();}catch(Exception e){finish();return;}
   LinearLayout layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);layout.setPadding(dp(20),dp(30),dp(20),dp(24));layout.setBackgroundColor(0xff191820);
-  TextView title=new TextView(this);title.setText("CCBCM · 壁纸预览 0.3");title.setTextSize(20);title.setTextColor(0xffeee9f5);layout.addView(title);
+  TextView title=new TextView(this);title.setText("CCBCM · 壁纸预览 0.4");title.setTextSize(20);title.setTextColor(0xffeee9f5);layout.addView(title);
   status=new TextView(this);status.setTextSize(14);status.setTextColor(0xffeee9f5);status.setPadding(0,dp(12),0,dp(12));layout.addView(status);
   surface=new SurfaceView(this);layout.addView(surface,new LinearLayout.LayoutParams(-1,0,1));surface.getHolder().addCallback(this);
   apply=new Button(this);apply.setText("设为壁纸");GradientDrawable bg=new GradientDrawable();bg.setColor(0xffd3c2f7);bg.setCornerRadius(dp(28));apply.setBackground(bg);apply.setTextColor(0xff252031);LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,dp(52));params.topMargin=dp(18);layout.addView(apply,params);apply.setOnClickListener(v->choose(false));

@@ -17,8 +17,17 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - run: gradle -p mobile/android assembleDebug lintDebug
+      - name: Restore stable signing identity
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+        run: |
+          test -n "$ANDROID_KEYSTORE"
+          printf '%s' "$ANDROID_KEYSTORE" | base64 --decode > "$RUNNER_TEMP/ccbcm-release.p12"
+      - run: gradle -p mobile/android assembleRelease lintRelease
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/ccbcm-release.p12
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
       - uses: actions/upload-artifact@v4
         with:
           name: CCBCM-Android-preview
-          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          path: mobile/android/app/build/outputs/apk/release/app-release.apk

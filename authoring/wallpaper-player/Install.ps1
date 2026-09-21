@@ -16,9 +16,10 @@ New-ItemProperty -Path "$classes\.ccbwall\OpenWithProgids" -Name 'CCBCM.Wallpape
 if(-not (Get-Item "$classes\.ccbwall").GetValue('')) { Set-Item "$classes\.ccbwall" -Value 'CCBCM.Wallpaper' }
 $shell=New-Object -ComObject WScript.Shell
 foreach($folder in @([Environment]::GetFolderPath('Desktop'),[Environment]::GetFolderPath('Programs'))) {
-  $link=$shell.CreateShortcut((Join-Path $folder 'CCBCM 动态壁纸.lnk'))
+  $link=$shell.CreateShortcut((Join-Path $folder 'CCBCM.lnk'))
   $link.TargetPath=$exe
   $link.Arguments='--settings'
+  $link.IconLocation=$exe+',0'
   $link.WorkingDirectory=$target
   $link.Save()
 }

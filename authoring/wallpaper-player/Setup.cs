@@ -47,8 +47,8 @@ class Setup {
   using(var k=Registry.CurrentUser.CreateSubKey(@"Software\Classes\ccbcm-wallpaper\shell\open\command"))k.SetValue("","\""+exe+"\" \"%1\"");
   dynamic shell=Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));
   foreach(string folder in new[]{Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),Environment.GetFolderPath(Environment.SpecialFolder.Programs)}){
-   dynamic shortcut=shell.CreateShortcut(Path.Combine(folder,"CCBCM 动态壁纸.lnk"));shortcut.TargetPath=exe;shortcut.Arguments="--settings";shortcut.WorkingDirectory=Target;shortcut.Description="打开动态壁纸管理和官网";shortcut.Save();
-   string legacy=Path.Combine(folder,"CCBCM Wallpaper.lnk");if(File.Exists(legacy)){dynamic old=shell.CreateShortcut(legacy);if(String.Equals((string)old.TargetPath,exe,StringComparison.OrdinalIgnoreCase))File.Delete(legacy);}
+   dynamic shortcut=shell.CreateShortcut(Path.Combine(folder,"CCBCM.lnk"));shortcut.TargetPath=exe;shortcut.Arguments="--settings";shortcut.WorkingDirectory=Target;shortcut.Description="CCBCM";shortcut.IconLocation=exe+",0";shortcut.Save();
+   foreach(string oldName in new[]{"CCBCM Wallpaper.lnk","CCBCM 动态壁纸.lnk","CCBCM插件.lnk"}){string legacy=Path.Combine(folder,oldName);if(File.Exists(legacy)){dynamic old=shell.CreateShortcut(legacy);if(String.Equals((string)old.TargetPath,exe,StringComparison.OrdinalIgnoreCase))File.Delete(legacy);}}
   }
   // Never add or change the user's auto-start preference during installation.
  }
@@ -57,8 +57,8 @@ class Setup {
    if(args.Length>0&&args[0]=="--verify"){using(var sha=SHA256.Create()){File.WriteAllText(Path.Combine(Path.GetTempPath(),"ccbcm-setup-verify.txt"),BitConverter.ToString(sha.ComputeHash(Resource("player"))).Replace("-","")+"\n"+Resource("demo").Length);}return 0;}
    if(args.Length>0&&args[0]=="--install"){Install();return 0;}
    Application.EnableVisualStyles();
-   var form=new Form{Text="安装 CCBCM 壁纸",Width=470,Height=310,FormBorderStyle=FormBorderStyle.FixedDialog,MaximizeBox=false,MinimizeBox=false,StartPosition=FormStartPosition.CenterScreen};
-   var title=new Label{Text="CCBCM 动态壁纸插件",Left=25,Top=25,Width=415,Height=40,Font=new System.Drawing.Font("Microsoft YaHei UI",15)};
+   var form=new Form{Text="安装 CCBCM",Icon=System.Drawing.Icon.ExtractAssociatedIcon(Assembly.GetExecutingAssembly().Location),Width=470,Height=310,FormBorderStyle=FormBorderStyle.FixedDialog,MaximizeBox=false,MinimizeBox=false,StartPosition=FormStartPosition.CenterScreen};
+   var title=new Label{Text="CCBCM",Left=25,Top=25,Width=415,Height=40,Font=new System.Drawing.Font("Microsoft YaHei UI",15)};
    var note=new Label{Text="安装后，从桌面或官网选择壁纸即可使用。\n\n支持静态图片与多种视频编码。\n首次安装会下载解码组件，开机启动由你选择。",Left=25,Top=80,Width=410,Height=110};
    var button=new Button{Text="安装并打开",Left=25,Top=202,Width=410,Height=40};
    button.Click+=async delegate{button.Enabled=false;button.Text="正在下载并安装解码组件…";try{await Task.Run(()=>Install());Process.Start(new ProcessStartInfo(Path.Combine(Target,"CCBCMWallpaper.exe"),"--settings"){UseShellExecute=true});form.Close();}catch(Exception e){MessageBox.Show(e.Message,"安装未完成");button.Enabled=true;button.Text="重新安装";}};
