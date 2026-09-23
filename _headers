@@ -2,7 +2,10 @@
   Cache-Control: public, max-age=31536000, immutable
 
 /index.html
-  Cache-Control: public, max-age=0, must-revalidate
+  Cache-Control: no-store
+
+/
+  Cache-Control: no-store
 
 /main.js
   Cache-Control: public, max-age=0, must-revalidate
@@ -23,5 +26,9 @@
 /downloads/*
   Content-Type: application/octet-stream
   Content-Disposition: attachment
-  Cache-Control: public, max-age=0, must-revalidate
+  Cache-Control: no-store
   X-Content-Type-Options: nosniff
+
+/downloads/latest.json
+  Content-Type: application/json; charset=utf-8
+  Content-Disposition: inline

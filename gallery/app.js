@@ -1,6 +1,6 @@
 let libraryItems=[],accountEpoch=0,libraryGeneration=0,favoriteRevision=0;const favoriteJobs=new Map();
 import {discoveryOrder,startHero} from './discovery.js?v=discovery-1';
-import {extractCover,mobileDevice,mobileLayout,portraitWork,mobileUse} from './media-tools.js?v=media-2';
+import {extractCover,mobileDevice,mobileLayout,portraitWork,mobileUse} from './media-tools.js?v=media-4';
 let discoveryRanking=[],stopHero=()=>{};
 matchMedia('(max-width:700px)').addEventListener('change',()=>{if(route==='downloads'){paintLibrary();return;}if(route!=='discover'||!document.querySelector('#grid'))return;renderGrid();stopHero();stopHero=startHero(document.querySelector('.hero-art'),works.filter(w=>mobileLayout()?portraitWork(w):!portraitWork(w)),discoveryRanking,{image,escape});});
 const creators={ccbcm:{name:'CCBCM',letter:'C',note:'我的壁纸与创作，也整理一些注明来源的开源壁纸。',kind:'站内创作者'}};

@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-09-23T04:04:14.140Z",
+  "android": {
+    "version": "0.4",
+    "versionCode": 4,
+    "url": "https://ccbcm.net/downloads/releases/CCBCM-Android-0.4.apk",
+    "size": 3734059,
+    "sha256": "e8ba4f6a8e046909b4e7b528d5dc323adb9b0f65e0a11c6a07c39606bcecfdf3"
+  },
+  "windows": {
+    "version": "0.4.0",
+    "versionCode": 4,
+    "url": "https://ccbcm.net/downloads/releases/CCBCM-Windows-0.4.0.exe",
+    "size": 521728,
+    "sha256": "4f12f72bb5734534419db0513f1ccd84c07767c82a868cb8055c1a9dfbe81a31"
+  }
+}
