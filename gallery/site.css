@@ -132,11 +132,11 @@
 /* Plugin directory: one aligned card per tool with a quiet icon rail. */
 .plugin-platforms{display:grid;gap:16px;max-width:1000px;margin:10px auto 0}
 .plugin-card{display:grid;grid-template-columns:56px minmax(0,1fr) auto;align-items:center;gap:22px;padding:24px 28px;border:1px solid var(--line);border-radius:26px;background:var(--panel);min-width:0}
-.plugin-icon{width:52px;height:52px;display:grid;place-items:center;border-radius:17px;background:#d3c2f71a;color:var(--accent);flex:none}
-.plugin-icon svg{width:29px;height:29px;display:block}
+.plugin-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:13px;background:#d3c2f71a;color:var(--accent);flex:none}
+.plugin-icon svg{width:24px;height:24px;display:block}
 .plugin-card-copy{min-width:0}
 .plugin-card-copy h2{margin:0 0 8px;font-size:20px}
 .plugin-card-copy p{margin:0 0 8px;color:var(--muted);font-size:13px;line-height:1.8}
 .plugin-card-copy small{display:block;color:var(--muted);font-size:11px;line-height:1.6}
 .plugin-card .plugin-actions{min-width:190px}
-@media(max-width:700px){.plugin-platforms{margin-top:4px}.plugin-card{grid-template-columns:44px minmax(0,1fr);gap:16px;padding:20px;border-radius:22px}.plugin-icon{width:44px;height:44px;border-radius:14px}.plugin-icon svg{width:25px;height:25px}.plugin-card-copy{grid-column:2}.plugin-card .plugin-actions{grid-column:2;min-width:0;width:100%}.plugin-card .plugin-actions .pill{width:100%}}
+@media(max-width:700px){.plugin-platforms{margin-top:4px}.plugin-card{grid-template-columns:44px minmax(0,1fr);gap:16px;padding:20px;border-radius:22px}.plugin-icon{width:36px;height:36px;border-radius:11px}.plugin-icon svg{width:21px;height:21px}.plugin-card-copy{grid-column:2}.plugin-card .plugin-actions{grid-column:2;min-width:0;width:100%}.plugin-card .plugin-actions .pill{width:100%}}
