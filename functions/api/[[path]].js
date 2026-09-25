@@ -120,9 +120,11 @@ async function multipartWallpaper(request,db,bucket,row,meta,key,action){
   }catch(e){return json({error:e.message||'分块上传失败，请重试。'},400);}
  }
  if(action==='complete'&&method==='POST'){
-  const parts=JSON.parse(meta.parts),count=Math.ceil(row.size/PART_SIZE);if(Object.keys(parts).length!==count)return json({error:'尚有分块未完成，请重试。'},409);
-  const lock=await db.prepare("UPDATE creator_videos SET state='verifying',updated_at=? WHERE id=? AND state='uploading'").bind(Date.now(),row.id).run();if(!changed(lock))return json({error:'正在校验，请稍后刷新。'},409);
-  try{await upload.complete(Array.from({length:count},(_,i)=>parts[i+1]));const object=await bucket.get(key);if(!object)throw Error('文件暂时无法读取。');await verifyWallpaper(object,row);
+  const parts=JSON.parse(meta.parts),count=Math.ceil(row.size/PART_SIZE);if(row.state==='uploading'&&Object.keys(parts).length!==count)return json({error:'尚有分块未完成，请重试。'},409);
+  const retrying=row.state==='verifying';
+  if(!['uploading','verifying'].includes(row.state))return json({error:'文件状态已改变，请刷新后再试。'},409);
+  const lock=await db.prepare("UPDATE creator_videos SET state='verifying',updated_at=? WHERE id=? AND state IN ('uploading','verifying')").bind(Date.now(),row.id).run();if(!changed(lock))return json({error:'正在校验，请稍后刷新。'},409);
+  try{if(!retrying)await upload.complete(Array.from({length:count},(_,i)=>parts[i+1]));const object=await bucket.get(key);if(!object)throw Error('文件暂时无法读取。');await verifyWallpaper(object,row);
    await db.prepare("UPDATE creator_videos SET state='ready',updated_at=? WHERE id=? AND state='verifying'").bind(Date.now(),row.id).run();return json({ok:true,state:'ready'});
   }catch(e){await bucket.delete(key).catch(()=>{});await upload.abort().catch(()=>{});await db.prepare("UPDATE creator_videos SET state='failed',updated_at=? WHERE id=? AND state='verifying'").bind(Date.now(),row.id).run();return json({error:e.message||'校验失败，请重试。'},400);}
  }
@@ -217,6 +219,45 @@ async function discoveryClicks(request,env){
  if(Math.random()<0.02)await db.prepare('DELETE FROM discovery_clicks WHERE day<?').bind(day-7).run();
  return json({ok:true});
 }
+async function emailTables(db){
+ await db.prepare('CREATE TABLE IF NOT EXISTS email_accounts (email TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),created_at INTEGER NOT NULL)').bind().run();
+ await db.prepare('CREATE TABLE IF NOT EXISTS email_codes (id TEXT PRIMARY KEY,email TEXT NOT NULL,code_hash TEXT NOT NULL,expires_at INTEGER NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,used_at INTEGER,created_at INTEGER NOT NULL)').bind().run();
+ await db.prepare('CREATE INDEX IF NOT EXISTS email_codes_lookup ON email_codes(email,created_at)').bind().run();
+ await db.prepare('CREATE TABLE IF NOT EXISTS auth_identities (provider TEXT NOT NULL,provider_id TEXT NOT NULL,user_id TEXT NOT NULL REFERENCES users(id),email TEXT NOT NULL DEFAULT "",created_at INTEGER NOT NULL,PRIMARY KEY(provider,provider_id))').bind().run();
+ await db.prepare('CREATE INDEX IF NOT EXISTS auth_identities_email ON auth_identities(email)').bind().run();
+}
+function normalizeEmail(value){return typeof value==='string'?value.trim().toLowerCase():'';}
+function supportedEmail(email){return /^[^\s@]{1,80}@(gmail\.com|googlemail\.com|qq\.com|foxmail\.com)$/i.test(email);}
+async function sendEmailCode(env,email,code){
+ if(!env.RESEND_API_KEY||!env.EMAIL_FROM)throw Error('邮箱登录服务尚未配置发信地址。');
+ const response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({from:env.EMAIL_FROM,to:[email],subject:'CCBCM 登录验证码',text:`你的 CCBCM 登录验证码是 ${code}，10 分钟内有效。如非本人操作，请忽略此邮件。`})});
+ if(!response.ok)throw Error('验证码邮件发送失败，请稍后重试。');
+}
+async function emailAuth(request,env,path){
+ await emailTables(env.DB);
+ if(request.method!=='POST')return json({error:'不支持这个操作。'},405);
+ const body=await bodyJSON(request),email=normalizeEmail(body?.email);
+ if(!supportedEmail(email))return json({error:'请输入 Gmail 或 QQ 邮箱地址。'},400);
+ if(path==='/api/auth/email/request'){
+  const recent=await env.DB.prepare('SELECT id FROM email_codes WHERE email=? AND created_at>? AND used_at IS NULL ORDER BY created_at DESC LIMIT 1').bind(email,Date.now()-60000).first();
+  if(recent)return json({error:'验证码已发送，请稍后再试。'},429);
+  const code=String(Math.floor(100000+Math.random()*900000)),id=random();
+  try{await sendEmailCode(env,email,code);await env.DB.prepare('INSERT INTO email_codes(id,email,code_hash,expires_at,created_at) VALUES(?,?,?,?,?)').bind(id,email,await hash(code),Date.now()+10*60000,Date.now()).run();return json({ok:true});}catch(error){return json({error:error.message||'验证码发送失败。'},503);}
+ }
+ if(path==='/api/auth/email/verify'){
+  const code=typeof body?.code==='string'?body.code.trim():'';if(!/^\d{6}$/.test(code))return json({error:'请输入 6 位验证码。'},400);
+  const row=await env.DB.prepare('SELECT * FROM email_codes WHERE email=? AND used_at IS NULL ORDER BY created_at DESC LIMIT 1').bind(email).first();
+  if(!row||row.expires_at<Date.now()||row.attempts>=5)return json({error:'验证码已失效，请重新获取。'},400);
+  if(await hash(code)!==row.code_hash){await env.DB.prepare('UPDATE email_codes SET attempts=attempts+1 WHERE id=?').bind(row.id).run();return json({error:'验证码不正确。'},400);}
+  const existing=await env.DB.prepare('SELECT user_id FROM email_accounts WHERE email=?').bind(email).first();
+  const identity=await env.DB.prepare('SELECT user_id FROM auth_identities WHERE lower(email)=lower(?) ORDER BY created_at LIMIT 1').bind(email).first();
+  const userId=existing?.user_id||identity?.user_id||'email:'+await hash(email),login='email-'+(await hash(email)).slice(0,16),name=email.split('@')[0].slice(0,40);
+  await env.DB.batch([env.DB.prepare('INSERT INTO users(id,login,name,created_at) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=CASE WHEN users.name LIKE "email-%" THEN excluded.name ELSE users.name END').bind(userId,login,name,Date.now()),env.DB.prepare('INSERT INTO email_accounts(email,user_id,created_at) VALUES(?,?,?) ON CONFLICT(email) DO UPDATE SET user_id=excluded.user_id').bind(email,userId,Date.now()),env.DB.prepare('UPDATE email_codes SET used_at=? WHERE id=?').bind(Date.now(),row.id)]);
+  const session=random();await env.DB.prepare('DELETE FROM sessions WHERE expires_at<?').bind(Date.now()).run();await env.DB.prepare('INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,?)').bind(await hash(session),userId,Date.now()+30*86400000).run();
+  return redirect(ORIGIN+'/#downloads',[cookie('__Host-ccbcm-session',session,30*86400)]);
+ }
+ return json({error:'找不到这个操作。'},404);
+}
 export async function onRequest({request,env}) {
   const url=new URL(request.url),path=url.pathname;
   const ready=!!(env.DB&&env.GITHUB_CLIENT_ID&&env.GITHUB_CLIENT_SECRET);
@@ -230,6 +271,7 @@ export async function onRequest({request,env}) {
   let stage="session";
   try {
     if(path==='/api/discovery')return await discoveryClicks(request,env);
+    if(path==='/api/auth/email/request'||path==='/api/auth/email/verify')return await emailAuth(request,env,path);
     if(path==='/api/auth/github'&&request.method==='GET') {
       const state=random();const auth=new URL('https://github.com/login/oauth/authorize');auth.searchParams.set('client_id',env.GITHUB_CLIENT_ID);auth.searchParams.set('redirect_uri',ORIGIN+'/api/auth/callback');auth.searchParams.set('state',state);
       return redirect(auth.href,[cookie('__Host-ccbcm-state',state,600)]);
@@ -243,11 +285,19 @@ export async function onRequest({request,env}) {
       stage='profile';
       const profile=await fetch('https://api.github.com/user',{headers:{'Authorization':'Bearer '+token.access_token,'User-Agent':'CCBCM','Accept':'application/vnd.github+json'}});
       const user=await profile.json();if(!profile.ok||!Number.isSafeInteger(user.id)||typeof user.login!=='string')throw Error('Profile failed');
+      const emailResponse=await fetch('https://api.github.com/user/emails',{headers:{'Authorization':'Bearer '+token.access_token,'User-Agent':'CCBCM','Accept':'application/vnd.github+json'}});
+      const emails=await emailResponse.json();const verifiedEmail=Array.isArray(emails)?emails.find(x=>x&&x.verified&&x.primary)?.email||emails.find(x=>x&&x.verified)?.email||'':'';
       stage='database';
+      await emailTables(env.DB);
+      const knownIdentity=await env.DB.prepare('SELECT user_id FROM auth_identities WHERE provider=? AND provider_id=?').bind('github',String(user.id)).first();
+      const knownEmail=verifiedEmail?await env.DB.prepare('SELECT user_id FROM email_accounts WHERE lower(email)=lower(?)').bind(verifiedEmail.toLowerCase()).first():null;
+      const userId=knownIdentity?.user_id||knownEmail?.user_id||String(user.id);
       const session=random();await env.DB.batch([
-        env.DB.prepare('INSERT INTO users(id,login,name,created_at) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET login=excluded.login,name=excluded.name').bind(String(user.id),user.login,user.name||user.login,Date.now()),
+        env.DB.prepare('INSERT INTO users(id,login,name,created_at) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET login=excluded.login,name=excluded.name').bind(userId,user.login,user.name||user.login,Date.now()),
+        env.DB.prepare('INSERT INTO auth_identities(provider,provider_id,user_id,email,created_at) VALUES(?,?,?,?,?) ON CONFLICT(provider,provider_id) DO UPDATE SET user_id=excluded.user_id,email=excluded.email').bind('github',String(user.id),userId,(verifiedEmail||'').toLowerCase(),Date.now()),
+        ...(verifiedEmail?[env.DB.prepare('INSERT INTO email_accounts(email,user_id,created_at) VALUES(?,?,?) ON CONFLICT(email) DO UPDATE SET user_id=excluded.user_id').bind(verifiedEmail.toLowerCase(),userId,Date.now())]:[]),
         env.DB.prepare('DELETE FROM sessions WHERE expires_at<?').bind(Date.now()),
-        env.DB.prepare('INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,?)').bind(await hash(session),String(user.id),Date.now()+30*86400000)
+        env.DB.prepare('INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,?)').bind(await hash(session),userId,Date.now()+30*86400000)
       ]);
       return redirect(ORIGIN+'/#downloads',[cookie('__Host-ccbcm-state','',0),cookie('__Host-ccbcm-session',session,30*86400)]);
     }
