@@ -273,7 +273,7 @@ export async function onRequest({request,env}) {
     if(path==='/api/discovery')return await discoveryClicks(request,env);
     if(path==='/api/auth/email/request'||path==='/api/auth/email/verify')return await emailAuth(request,env,path);
     if(path==='/api/auth/github'&&request.method==='GET') {
-      const state=random();const auth=new URL('https://github.com/login/oauth/authorize');auth.searchParams.set('client_id',env.GITHUB_CLIENT_ID);auth.searchParams.set('redirect_uri',ORIGIN+'/api/auth/callback');auth.searchParams.set('state',state);
+      const state=random();const auth=new URL('https://github.com/login/oauth/authorize');auth.searchParams.set('client_id',env.GITHUB_CLIENT_ID);auth.searchParams.set('redirect_uri',ORIGIN+'/api/auth/callback');auth.searchParams.set('scope','read:user user:email');auth.searchParams.set('state',state);
       return redirect(auth.href,[cookie('__Host-ccbcm-state',state,600)]);
     }
     if(path==='/api/auth/callback'&&request.method==='GET') {
