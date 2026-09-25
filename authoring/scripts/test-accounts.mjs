@@ -175,7 +175,7 @@ await (await import('./test-media.mjs')).testMedia({env,req,sql,digest,A,B,onReq
 await (await import('./test-hd-covers.mjs')).testCovers({env,req,sql,digest,A,B,onRequest});
 assert.equal((await req('logout','POST','a'.repeat(64))).status,200);
 assert.equal((await req('downloads','GET','a'.repeat(64))).status,401);
-const login=await req('auth/github');assert.equal(login.status,302);const auth=new URL(login.headers.get('Location'));assert.equal(auth.origin,'https://github.com');assert.equal(auth.searchParams.has('scope'),false);assert.ok(login.headers.get('Set-Cookie').includes('HttpOnly; Secure; SameSite=Lax'));
+const login=await req('auth/github');assert.equal(login.status,302);const auth=new URL(login.headers.get('Location'));assert.equal(auth.origin,'https://github.com');assert.equal(auth.searchParams.get('scope'),'read:user user:email');assert.ok(login.headers.get('Set-Cookie').includes('HttpOnly; Secure; SameSite=Lax'));
 assert.equal((await req('auth/callback?code=x&state=wrong')).headers.get('Location'),'https://ccbcm.net/?login=failed#downloads');
 sql.prepare('UPDATE sessions SET expires_at=0').run();assert.equal((await req('downloads','GET','b'.repeat(64))).status,401);
 assert.equal((await (await onRequest({env:{},request:new Request('https://ccbcm.net/api/account')})).json()).ready,false);

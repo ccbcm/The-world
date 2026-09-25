@@ -227,7 +227,7 @@ async function emailTables(db){
  await db.prepare('CREATE INDEX IF NOT EXISTS auth_identities_email ON auth_identities(email)').bind().run();
 }
 function normalizeEmail(value){return typeof value==='string'?value.trim().toLowerCase():'';}
-function supportedEmail(email){return /^[^\s@]{1,80}@(gmail\.com|googlemail\.com|qq\.com|foxmail\.com)$/i.test(email);}
+function supportedEmail(email){return /^[^\s@]{1,80}@[a-z0-9.-]{2,190}\.[a-z]{2,}$/i.test(email);}
 async function sendEmailCode(env,email,code){
  if(!env.RESEND_API_KEY||!env.EMAIL_FROM)throw Error('邮箱登录服务尚未配置发信地址。');
  const response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({from:env.EMAIL_FROM,to:[email],subject:'CCBCM 登录验证码',text:`你的 CCBCM 登录验证码是 ${code}，10 分钟内有效。如非本人操作，请忽略此邮件。`})});
@@ -237,7 +237,7 @@ async function emailAuth(request,env,path){
  await emailTables(env.DB);
  if(request.method!=='POST')return json({error:'不支持这个操作。'},405);
  const body=await bodyJSON(request),email=normalizeEmail(body?.email);
- if(!supportedEmail(email))return json({error:'请输入 Gmail 或 QQ 邮箱地址。'},400);
+ if(!supportedEmail(email))return json({error:'请输入有效的邮箱地址。'},400);
  if(path==='/api/auth/email/request'){
   const recent=await env.DB.prepare('SELECT id FROM email_codes WHERE email=? AND created_at>? AND used_at IS NULL ORDER BY created_at DESC LIMIT 1').bind(email,Date.now()-60000).first();
   if(recent)return json({error:'验证码已发送，请稍后再试。'},429);
