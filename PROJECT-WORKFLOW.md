@@ -293,3 +293,9 @@
 - 已通过 `npm run build`、`node --check gallery/app.js`、`git diff --check`；工作树干净并已推送 `origin/main`。
 - 线上核验：首页、`gallery/app.js`、`gallery/site.css` 均返回 200；公开作品接口返回 200；代表性公开视频内容支持 `206 Partial Content`、`video/mp4` 和 Range 分段，作为恢复后的基础可用性证据。
 - 后续重新优化前，先从该基线做单项、小范围、可回退改动，并逐项核验首屏、公开作品和视频播放。
+
+### 2026-09-26 插件按钮尺寸规范（第一项）
+- 仅调整 `gallery/site.css`：插件操作列统一为 220px，按钮统一宽度与最小高度，移动端保持全宽。
+- 未改加载流程、缓存策略、公开作品接口或视频播放代码。
+- 提交 `4fdd921` 已推送；线上插件页 DOM 渲染正常，控制台无 warning/error；首页与公开视频 Range 请求复核正常。
+- 下一项修改前继续以线上卡顿检查为门槛。
