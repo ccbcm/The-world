@@ -4,7 +4,8 @@
   "compatibility_date": "2026-09-07",
   "vars": {
     "ADMIN_GITHUB_ID": "325610429",
-    "GITHUB_CLIENT_ID": "Ov23litRDAHx6Wwpw3oI"
+    "GITHUB_CLIENT_ID": "Ov23litRDAHx6Wwpw3oI",
+    "EMAIL_FROM": "CCBCM <no-reply@ccbcm.net>"
   },
   "d1_databases": [
     {
