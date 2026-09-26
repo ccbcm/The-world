@@ -1,5 +1,5 @@
 let libraryItems=[],accountEpoch=0,libraryGeneration=0,favoriteRevision=0;const favoriteJobs=new Map();
-import {discoveryOrder,startHero} from './discovery.js?v=playback-2';
+import {discoveryOrder,startHero} from './discovery.js?v=discovery-1';
 import {extractCover,mobileDevice,mobileLayout,portraitWork,mobileUse} from './media-tools.js?v=media-4';
 let discoveryRanking=[],stopHero=()=>{};
 matchMedia('(max-width:700px)').addEventListener('change',()=>{if(route==='downloads'){paintLibrary();return;}if(route!=='discover'||!document.querySelector('#grid'))return;renderGrid();stopHero();stopHero=startHero(document.querySelector('.hero-art'),works.filter(w=>mobileLayout()?portraitWork(w):!portraitWork(w)),discoveryRanking,{image,escape});});
@@ -16,7 +16,7 @@ const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 function toast(s){let el=document.querySelector('#toast');el.textContent=s;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2200)}
 function heart(w){return `<button class="heart ${saved.has(w.id)?'selected':''}" ${favoriteJobs.has(w.id)?'disabled aria-busy="true"':''} data-save="${w.id}" aria-label="${saved.has(w.id)?'取消收藏':'收藏'} ${escape(w.name)}" aria-pressed="${saved.has(w.id)}">${saved.has(w.id)?'♥':'♡'}</button>`}
 function card(w){const author=w.ownerLogin||(creators[w.author]?.name||'作者')+(w.author==='ccbcm'?'':' · 开源精选'),href=w.uploaded?'#people/'+encodeURIComponent(w.ownerLogin):'#creator/'+w.author;return `<article class="card catalog-card"><button class="cover" data-work="${w.id}" aria-label="查看 ${escape(w.name)}"><img src="${image(w)}" alt="${escape(w.name)}" loading="lazy" width="600" height="375"><span class="badge">${escape(w.type)}</span></button><div class="card-info"><div class="card-text"><h3 title="${escape(w.name)}">${escape(w.name)}</h3><a class="author" title="${escape(author)}" href="${href}">${escape(author)}</a></div>${heart(w)}</div></article>`}
-function toolbar(){return `<div class="filters" role="group" aria-label="作品分类">${['全部','动态壁纸','静态壁纸','极简','自然'].map(f=>`<button class="chip ${filter===f?'active':''}" data-filter="${f}" aria-pressed="${filter===f}">${f}</button>`).join('')}<label class="search"><span aria-hidden="true">⌕</span><input id="search" aria-label="搜索作品" placeholder="搜壁纸、风格或作者" value="${escape(query)}" type="search"></label></div><section class="grid" id="grid" aria-label="作品"></section>`}
+function toolbar(title,sub){return `<section class="intro-line"><div><h2>${title}</h2><div class="subtitle">${sub}</div></div><label class="search"><span aria-hidden="true">⌕</span><input id="search" aria-label="搜索作品" placeholder="搜壁纸、风格或作者" value="${escape(query)}" type="search"></label></section><div class="filters" role="group" aria-label="作品分类">${['全部','动态壁纸','静态壁纸','极简','自然'].map(f=>`<button class="chip ${filter===f?'active':''}" data-filter="${f}" aria-pressed="${filter===f}">${f}</button>`).join('')}</div><section class="grid" id="grid" aria-label="作品"></section>`}
 function renderGrid(){let list=works.filter(w=>(route!=='discover'||(mobileLayout()?portraitWork(w):!portraitWork(w)))&&(route!=='wallpapers'||w.type!=='互动作品')&&(route!=='saved'||saved.has(w.id))&&(!route.startsWith('creator/')||w.author===route.split('/')[1])&&(filter==='全部'||w.type===filter||w.tag===filter)&&(`${w.name} ${w.ownerLogin||creators[w.author]?.name||''} ${w.tag} ${w.original}`).toLowerCase().includes(query.toLowerCase()));if(route==='discover')list=discoveryOrder(list,discoveryRanking);document.querySelector('#grid').innerHTML=list.length?list.map(card).join(''):`<div class="empty">${route==='saved'?'还没有收藏。遇到喜欢的作品，点一下 ♡ 就能留在这里。':'没有找到合适的作品，换个词试试。'}</div>`}
 function render(){stopHero();stopHero=()=>{};route=location.hash.slice(1)||'discover';if(route==='wallpapers'){location.hash='discover';return;}filter='全部';query='';if(dialog.open)dialog.close();document.querySelectorAll('[data-nav]').forEach(a=>a.classList.toggle('active',a.dataset.nav===route||route.startsWith('creator/')&&a.dataset.nav==='creators'));
 document.querySelector('.account-menu').open=false;
@@ -74,7 +74,10 @@ async function refreshAccount(){try{const a=await account();const link=document.
 refreshAccount();
 if(new URLSearchParams(location.search).get('login')==='failed'){const reason=new URLSearchParams(location.search).get('reason');const messages={bad_verification_code:'授权已过期，请重新登录。',incorrect_client_credentials:'登录应用的密钥配置不匹配。',redirect_uri_mismatch:'登录回调地址不匹配。',token_exchange:'暂时无法连接 GitHub 登录服务。',token_exchange_failed:'GitHub 未能完成授权，请重新登录。',profile:'暂时无法读取 GitHub 公开身份。',database:'账号保存失败，请稍后重试。'};toast(messages[reason]||'登录未完成，请再试一次。');}
 
-Promise.all([loadPublished(),loadDiscovery()]).finally(()=>{render();resumePendingDownload();});
+render();
+resumePendingDownload();
+loadPublished().then(()=>{render();});
+loadDiscovery();
 
 
 function avatarHTML(p){return (p.customAvatar||p.avatar==='github')&&p.avatarUrl?`<img class="user-avatar" src="${escape(p.avatarUrl)}" alt="" referrerpolicy="no-referrer">`:`<span class="user-avatar avatar-${escape(p.avatar)}">${escape(p.name.slice(0,1))}</span>`;}
@@ -197,12 +200,3 @@ function recordClick(id){const key=Math.floor((Date.now()+8*3600000)/86400000)+'
 setInterval(()=>{if(!document.hidden)loadDiscovery();},300000);
 async function resumePendingDownload(){let pending;try{pending=JSON.parse(sessionStorage.getItem('ccbcm-pending-download')||'null');}catch{return;}if(!pending)return;if(Date.now()-pending.at>15*60000||!works.some(w=>w.id===pending.id)){try{sessionStorage.removeItem('ccbcm-pending-download');}catch{}return;}try{const a=await account();if(!a.user)return;await api('downloads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:pending.id})});sessionStorage.removeItem('ccbcm-pending-download');toast('已加入我的下载');if(pending.returnTo&&/^(discover|wallpapers|people\/[a-zA-Z0-9-]+|creator\/[a-zA-Z0-9-]+)$/.test(pending.returnTo)&&route!==pending.returnTo)location.hash=pending.returnTo;else if(route==='downloads')renderDownloads();}catch{toast('上次选择的壁纸暂未保存，请在作品中重新点击下载。');}}
 
-
-// Prepare only the video the visitor explicitly opened.
-new MutationObserver(()=>{
- if(!dialog.open)return;
- const video=dialog.querySelector('video');
- if(!video||video.dataset.prepared)return;
- video.dataset.prepared='true';video.preload='auto';video.muted=true;
- video.play().catch(()=>{});
-}).observe(dialog,{attributes:true,attributeFilter:['open']});
