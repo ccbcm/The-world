@@ -278,3 +278,4 @@
 - 新增 `CCBCM-DEPLOYMENT.md`，记录主仓库、Cloudflare Pages、D1/R2、Resend 和换电脑继续工作的边界；密钥仍只保留在线上环境。
 - `piorunkulaga174` 账号的旧陆家嘴项目暂不删除、不迁移，避免影响该账号的其他项目。后续只有在确认没有域名、Pages、R2、D1 或其他依赖，并完成历史和素材备份后，才考虑归档或删除；该动作需要单独确认。
 - 本阶段完成主仓库固定和交接文档，网站稳定性优先；后续开发继续以本文件、`AGENTS.md` 和 `CCBCM-DEPLOYMENT.md` 为准。
+- 计算机使用核验确认：`ccbcm` 会话拥有仓库，Cloudflare Pages 连接 `ccbcm/The-world`、生产分支 `main` 且自动部署开启；桌面 Chrome 的旧会话无仓库设置权限，不需要把它当作主账号继续操作。

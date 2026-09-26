@@ -7,6 +7,8 @@
 - Cloudflare Pages 项目：`ccbcm`
 - 自定义域名：`https://ccbcm.net`
 - Pages 构建：`npm run build`，输出目录 `dist`
+- 已核验仓库所有权：`ccbcm` 会话可见“你拥有 ccbcm/The-world”；Cloudflare Pages 的 Git 仓库也显示为 `ccbcm/The-world`。
+- Pages 生产分支为 `main`，自动部署已启用，GitHub App 安装绑定在 CCBCM 账户侧。
 
 ## 云端资源
 
@@ -19,6 +21,8 @@
 ## 账号和旧项目
 
 CCBCM 主项目统一在 `ccbcm` GitHub 账号下维护。`piorunkulaga174` 账号的陆家嘴旧项目暂不删除，先保持独立并在确认没有 Cloudflare、域名、对象存储或其他项目依赖后再归档/设为私有。删除旧仓库前必须先导出历史和素材备份，并获得单独确认。
+
+桌面 Chrome 当前会话访问仓库设置返回 404，不能据此判断项目归属错误；应以已登录 `ccbcm` 会话中显示的仓库所有权和 Cloudflare Pages 绑定为准。
 
 ## 换电脑继续工作
 
