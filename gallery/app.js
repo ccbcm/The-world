@@ -1,5 +1,5 @@
 let libraryItems=[],accountEpoch=0,libraryGeneration=0,favoriteRevision=0;const favoriteJobs=new Map();
-import {discoveryOrder,startHero} from './discovery.js?v=discovery-1';
+import {discoveryOrder,startHero} from './discovery.js?v=discovery-2';
 import {extractCover,mobileDevice,mobileLayout,portraitWork,mobileUse} from './media-tools.js?v=media-4';
 let discoveryRanking=[],stopHero=()=>{};
 matchMedia('(max-width:700px)').addEventListener('change',()=>{if(route==='downloads'){paintLibrary();return;}if(route!=='discover'||!document.querySelector('#grid'))return;renderGrid();stopHero();stopHero=startHero(document.querySelector('.hero-art'),works.filter(w=>mobileLayout()?portraitWork(w):!portraitWork(w)),discoveryRanking,{image,escape});});
