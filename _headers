@@ -20,6 +20,15 @@
 /gallery/*
   Cache-Control: public, max-age=0, must-revalidate
 
+/gallery/app.js
+  Cache-Control: no-store
+
+/gallery/site.css
+  Cache-Control: no-store
+
+/gallery/discovery.js
+  Cache-Control: no-store
+
 /city.html
   Cache-Control: public, max-age=0, must-revalidate
 
