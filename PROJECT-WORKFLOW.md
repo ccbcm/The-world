@@ -286,3 +286,10 @@
 - 本地证据：`node --check gallery/app.js`、`npm run build`、`git diff --check` 通过；390px/本地浏览器首屏可见标题、英雄封面、分类和本地作品卡片。
 - 尚未完成：线上提交与线上首屏性能数据核对；大图压缩、响应式图片/CDN 策略暂不改，需先做网络请求体积和视觉回归评估。
 - 下一步：核对线上版本；随后再评估 `lines.png` 等大素材是否需要生成 WebP/AVIF 与 `srcset`，避免直接替换原始素材。
+
+### 2026-09-26 静态资源缓存优化（进行中）
+- 线上资源核对：`blue.jpg` 约 8 KB，首页本地首屏封面不是主要体积瓶颈；`lines.png` 约 1.5 MB，但当前首页使用 `lines.svg`，暂不替换原图。
+- 已将 `/gallery/*` 的静态资源缓存改为 `max-age=86400, stale-while-revalidate=604800`，并把首页 CSS/模块脚本版本号更新为 `cache-2`，避免发布后继续使用旧代码。
+- 保持 `/main.js`、`/character.js`、`/architecture.js`、`/city.html` 原有重新验证策略，避免扩大缓存范围。
+- `npm run build`、`git diff --check` 通过；已推送提交 `38cdd80`、`b6ad9ce`。线上部署 HTTP 200 核对待下一次缓存头回读。
+- 下一步：回读线上 `Cache-Control`，再决定是否做 WebP/AVIF 与 `srcset`；这会涉及资源生成和视觉回归，仍需单独评估。
