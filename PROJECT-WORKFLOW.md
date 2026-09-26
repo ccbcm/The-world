@@ -312,3 +312,8 @@
 - 已撤回该异步二次渲染，恢复原先 `loadPublished + loadDiscovery` 完成后单次渲染；保留已验证的 `/gallery/*` 缓存与筛选区间距修正。
 - `node --check gallery/app.js`、`npm run build`、`git diff --check` 通过；线上 `app.js?v=cache-4` 已返回 `Promise.all(...).finally(...render())`，主页 HTTP 200。
 - 提交 `0083c04`、`8fdbf5a` 已推送。后续若继续追求首屏速度，应改为增量插入公开卡片或服务端首屏数据，不能再次整体二次渲染。
+
+### 2026-09-26 动态壁纸播放修复
+- 用户反馈最近改动后动态壁纸无法播放。线上复现确认视频接口可返回 `206 Partial Content`，文件和 Range 服务正常；前端轮播在视频尚未进入可播放状态时仍按 12 秒切换，详情视频使用 `preload=none` 且未主动准备。
+- 修复：轮播只有在视频真正 `playing` 且 `readyState>=3` 后才开始切换计时；等待状态会取消计时；打开详情时将该视频切换为 `preload=auto` 并尝试播放；打开详情期间释放首页轮播视频，避免带宽争抢。
+- `node --check`、`npm run build`、`git diff --check` 通过，脚本版本更新为 `playback-2`，已推送 `f045c60`。线上视频完整播放需等待 Cloudflare 部署后再做浏览器回归。
