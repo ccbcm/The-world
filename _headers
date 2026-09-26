@@ -8,20 +8,20 @@
   Cache-Control: no-store
 
 /main.js
-  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cache-Control: public, max-age=0, must-revalidate
 
 /character.js
-  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cache-Control: public, max-age=0, must-revalidate
 
 
 /architecture.js
-  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cache-Control: public, max-age=0, must-revalidate
 
 /gallery/*
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
 
 /city.html
-  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cache-Control: public, max-age=0, must-revalidate
 
 /downloads/*
   Content-Type: application/octet-stream
