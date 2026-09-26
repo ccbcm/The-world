@@ -1,5 +1,5 @@
 let libraryItems=[],accountEpoch=0,libraryGeneration=0,favoriteRevision=0;const favoriteJobs=new Map();
-import {discoveryOrder,startHero} from './discovery.js?v=discovery-1';
+import {discoveryOrder,startHero} from './discovery.js?v=playback-2';
 import {extractCover,mobileDevice,mobileLayout,portraitWork,mobileUse} from './media-tools.js?v=media-4';
 let discoveryRanking=[],stopHero=()=>{};
 matchMedia('(max-width:700px)').addEventListener('change',()=>{if(route==='downloads'){paintLibrary();return;}if(route!=='discover'||!document.querySelector('#grid'))return;renderGrid();stopHero();stopHero=startHero(document.querySelector('.hero-art'),works.filter(w=>mobileLayout()?portraitWork(w):!portraitWork(w)),discoveryRanking,{image,escape});});
@@ -197,3 +197,12 @@ function recordClick(id){const key=Math.floor((Date.now()+8*3600000)/86400000)+'
 setInterval(()=>{if(!document.hidden)loadDiscovery();},300000);
 async function resumePendingDownload(){let pending;try{pending=JSON.parse(sessionStorage.getItem('ccbcm-pending-download')||'null');}catch{return;}if(!pending)return;if(Date.now()-pending.at>15*60000||!works.some(w=>w.id===pending.id)){try{sessionStorage.removeItem('ccbcm-pending-download');}catch{}return;}try{const a=await account();if(!a.user)return;await api('downloads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:pending.id})});sessionStorage.removeItem('ccbcm-pending-download');toast('已加入我的下载');if(pending.returnTo&&/^(discover|wallpapers|people\/[a-zA-Z0-9-]+|creator\/[a-zA-Z0-9-]+)$/.test(pending.returnTo)&&route!==pending.returnTo)location.hash=pending.returnTo;else if(route==='downloads')renderDownloads();}catch{toast('上次选择的壁纸暂未保存，请在作品中重新点击下载。');}}
 
+
+// Prepare only the video the visitor explicitly opened.
+new MutationObserver(()=>{
+ if(!dialog.open)return;
+ const video=dialog.querySelector('video');
+ if(!video||video.dataset.prepared)return;
+ video.dataset.prepared='true';video.preload='auto';video.muted=true;
+ video.play().catch(()=>{});
+}).observe(dialog,{attributes:true,attributeFilter:['open']});

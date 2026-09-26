@@ -15,12 +15,12 @@ export function startHero(host,works,ranking,{image,escape}){
  const reduced=matchMedia('(prefers-reduced-motion: reduce)');let index=0,paused=reduced.matches,visible=true,hover=false,focused=false,timer=null,video=null,dead=false;
  const canPlay=()=>!dead&&!paused&&!document.hidden&&visible&&!document.querySelector('dialog[open]');
  function release(){if(video){video.pause();video.removeAttribute('src');video.load();video=null;}}
- function schedule(){clearTimeout(timer);if(canPlay()&&!hover&&!focused&&list.length>1)timer=setTimeout(()=>show(index+1),12000);}
- function sync(){if(canPlay()){video?.play().catch(()=>{});}else video?.pause();schedule();}
+ function schedule(){clearTimeout(timer);if(canPlay()&&video?.readyState>=3&&!video.paused&&!hover&&!focused&&list.length>1)timer=setTimeout(()=>show(index+1),12000);}
+ function sync(){if(document.querySelector('dialog[open]')){release();clearTimeout(timer);return;}if(!video&&!dead){show(index);return;}if(canPlay()){video?.play().catch(()=>{});}else video?.pause();schedule();}
  function show(next){release();index=(next+list.length)%list.length;const w=list[index];open.dataset.work=w.id;open.setAttribute('aria-label','查看 '+w.name);
   open.innerHTML=`<img src="${image(w)}" alt="${escape(w.name)}" width="1400" height="850"><div class="hero-label"><div><strong title="${escape(w.name)}">${escape(w.name)}</strong><small>${escape(w.ownerLogin||'CCBCM')} · 动态壁纸</small></div></div>`;
   counter.textContent=`${index+1} / ${list.length}`;video=document.createElement('video');video.className='hero-video';video.muted=true;video.defaultMuted=true;video.playsInline=true;video.loop=true;video.preload='none';video.setAttribute('aria-hidden','true');video.poster=image(w);video.src=w.video;open.prepend(video);
-  const current=video;video.addEventListener('playing',()=>{if(current===video)open.classList.add('is-playing');});video.addEventListener('error',()=>{if(current===video)open.classList.remove('is-playing');});open.classList.remove('is-playing');sync();
+  const current=video;video.addEventListener('playing',()=>{if(current===video){open.classList.add('is-playing');schedule();}});video.addEventListener('waiting',()=>clearTimeout(timer));video.addEventListener('error',()=>{if(current===video)open.classList.remove('is-playing');});open.classList.remove('is-playing');sync();
  }
  const prev=()=>show(index-1),next=()=>show(index+1),pause=()=>{paused=!paused;sync();};
  const enter=()=>{hover=true;schedule();},leave=()=>{hover=false;schedule();},focus=()=>{focused=true;schedule();},blur=e=>{if(!host.contains(e.relatedTarget)){focused=false;schedule();}};
