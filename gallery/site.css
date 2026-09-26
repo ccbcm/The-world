@@ -149,3 +149,9 @@ dialog.login-sheet{width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 
 .plugin-card .plugin-actions{width:240px;min-width:240px;display:flex;flex-direction:column;gap:10px;align-self:center}
 .plugin-card .plugin-actions .pill{width:240px;min-height:48px;padding:12px 16px;white-space:nowrap}
 @media(max-width:700px){.plugin-card .plugin-actions{width:100%;min-width:0}.plugin-card .plugin-actions .pill{width:100%;min-height:46px}}
+
+/* Discovery toolbar: filters and search share one horizontal control row. */
+.filters{align-items:center}
+.filters .search{margin-left:auto;flex:0 1 260px;min-width:210px}
+.filters .search input{width:100%}
+@media(max-width:700px){.filters{align-items:stretch}.filters .search{flex:1 0 100%;min-width:0;margin-left:0}.filters .chip{flex:0 0 auto}}
