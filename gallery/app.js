@@ -74,7 +74,7 @@ async function refreshAccount(){try{const a=await account();const link=document.
 refreshAccount();
 if(new URLSearchParams(location.search).get('login')==='failed'){const reason=new URLSearchParams(location.search).get('reason');const messages={bad_verification_code:'授权已过期，请重新登录。',incorrect_client_credentials:'登录应用的密钥配置不匹配。',redirect_uri_mismatch:'登录回调地址不匹配。',token_exchange:'暂时无法连接 GitHub 登录服务。',token_exchange_failed:'GitHub 未能完成授权，请重新登录。',profile:'暂时无法读取 GitHub 公开身份。',database:'账号保存失败，请稍后重试。'};toast(messages[reason]||'登录未完成，请再试一次。');}
 
-Promise.all([loadPublished(),loadDiscovery()]).finally(()=>{render();resumePendingDownload();});
+render();\nresumePendingDownload();\nloadPublished().then(()=>{render();});\nloadDiscovery();
 
 
 function avatarHTML(p){return (p.customAvatar||p.avatar==='github')&&p.avatarUrl?`<img class="user-avatar" src="${escape(p.avatarUrl)}" alt="" referrerpolicy="no-referrer">`:`<span class="user-avatar avatar-${escape(p.avatar)}">${escape(p.name.slice(0,1))}</span>`;}
