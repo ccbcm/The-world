@@ -92,7 +92,7 @@
 @media(max-width:700px){
  .plugin-platforms{display:flex;flex-direction:column}
  .plugin-platforms .android-package{order:-1}
- .windows-package .plugin-actions .secondary{display:none}
+ .windows-package .plugin-actions .secondary{display:inline-flex}
  #download-grid{grid-template-columns:minmax(0,1fr)}
  #app:has(.hero) #grid .cover{aspect-ratio:9/16}
  .download-card .cover{aspect-ratio:16/10}
@@ -144,3 +144,8 @@
 dialog.login-sheet{width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:0;border:1px solid var(--line);border-radius:26px;background:var(--panel);color:var(--text);overflow:auto;text-align:left}dialog.login-sheet::backdrop{background:#0009;backdrop-filter:blur(5px)}.login-sheet-card{position:relative;padding:32px;min-width:0}.login-sheet-card h3{margin:0 36px 12px 0;font-size:23px}.login-sheet-card>.pill{width:100%;margin-top:12px}.login-close{position:absolute;right:16px;top:12px;width:36px;height:36px;background:transparent;font-size:28px;line-height:1;border-radius:50%}.login-sheet .email-login{margin-top:20px;max-width:none}.login-sheet .email-login p{margin:0;overflow-wrap:anywhere}.login-sheet .subtitle{line-height:1.7}.account-panel{padding:48px 24px}@media(max-width:480px){.login-sheet-card{padding:24px}.email-code-row{grid-template-columns:minmax(0,1fr) auto;gap:8px}.email-code-row .pill{padding:12px;font-size:12px}}
 /* Compact login dialog, including dialogs opened from wallpaper details. */
 dialog.login-sheet{width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:0;border:1px solid var(--line);border-radius:26px;background:var(--panel);color:var(--text);overflow:auto;text-align:left}dialog.login-sheet::backdrop{background:#0009;backdrop-filter:blur(5px)}.login-sheet-card{position:relative;padding:32px;min-width:0}.login-sheet-card h3{margin:0 36px 12px 0;font-size:23px}.login-sheet-card>.pill{width:100%;margin-top:12px}.login-close{position:absolute;right:16px;top:12px;width:36px;height:36px;background:transparent;font-size:28px;line-height:1;border-radius:50%}.login-sheet .email-login{margin-top:20px;max-width:none}.login-sheet .email-login p{margin:0;overflow-wrap:anywhere}.login-sheet .subtitle{line-height:1.7}.account-panel{padding:48px 24px}@media(max-width:480px){.login-sheet-card{padding:24px}.email-code-row{grid-template-columns:minmax(0,1fr) auto;gap:8px}.email-code-row .pill{padding:12px;font-size:12px}}
+
+/* Plugin controls share one measured rail so every card lines up. */
+.plugin-card .plugin-actions{width:240px;min-width:240px;display:flex;flex-direction:column;gap:10px;align-self:center}
+.plugin-card .plugin-actions .pill{width:240px;min-height:48px;padding:12px 16px;white-space:nowrap}
+@media(max-width:700px){.plugin-card .plugin-actions{width:100%;min-width:0}.plugin-card .plugin-actions .pill{width:100%;min-height:46px}}
