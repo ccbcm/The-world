@@ -155,3 +155,7 @@ dialog.login-sheet{width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 
 .filters .search{margin-left:auto;flex:0 1 260px;min-width:210px}
 .filters .search input{width:100%}
 @media(max-width:700px){.filters{align-items:stretch}.filters .search{flex:1 0 100%;min-width:0;margin-left:0}.filters .chip{flex:0 0 auto}}
+
+/* Keep the discovery controls visually separated from the hero card. */
+main > .filters{margin-top:38px}
+@media(max-width:700px){main > .filters{margin-top:26px}}
