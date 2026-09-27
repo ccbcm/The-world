@@ -28,6 +28,14 @@ export async function testMedia({env,req,sql,digest,A,B,onRequest}) {
   const manifest=await (await req('published-videos/'+id+'/manifest')).json();assert.equal(manifest.mime,mime);assert.equal(manifest.sha256,digest(bytes));
   const response=await req('published-videos/'+id+'/content');assert.equal(response.headers.get('Content-Type'),mime);assert.equal(digest(Buffer.from(await response.arrayBuffer())),manifest.sha256);
   assert.equal((await req('downloads','POST',B,{id})).status,200);
+  // A withdrawn work may replace its file while preserving the same id and
+  // the existing downloader relationship.
+  assert.equal((await req('videos/'+id+'/unlist','POST',A)).status,200);
+  assert.equal((await transfer(id,bytes)).status,200);
+  assert.equal((await req('videos/'+id+'/submit','POST',A)).status,200);
+  assert.equal((await req('moderation/'+id,'POST',B,{decision:'approve',reason:''})).status,200);
+  assert.equal((await req('videos/'+id+'/publish','POST',A)).status,200);
+  assert.equal((await (await req('downloads','GET',B)).json()).items.some(x=>x.id===id),true);
  }
  const png=readFileSync('gallery/media/cat.png');const mismatch=await reserve(png,'image/png','0'.repeat(64));assert.equal((await transfer(mismatch,png)).status,400);
  const disguised=await reserve(png,'video/mp4');assert.equal((await transfer(disguised,png)).status,400);

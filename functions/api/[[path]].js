@@ -98,10 +98,12 @@ async function verifyWallpaper(object,row){
 async function multipartWallpaper(request,db,bucket,row,meta,key,action){
  const method=request.method;
  if(action==='begin'&&method==='POST'){
-  if(['ready','review','approved','published','unlisted'].includes(row.state))return json({ready:true});
+  // A withdrawn work keeps its public id and download relationships, but may
+  // replace the stored file before it is submitted for review again.
+  if(['ready','review','approved','published'].includes(row.state))return json({ready:true});
   if(row.state==='uploading'&&meta?.upload_id&&row.updated_at>Date.now()-15*60000)return json({partSize:PART_SIZE,parts:JSON.parse(meta.parts),uploadId:meta.upload_id});
-  const lock=await db.prepare("UPDATE creator_videos SET state='uploading',updated_at=? WHERE id=? AND (state IN ('reserved','failed') OR (state IN ('uploading','verifying') AND updated_at<?))").bind(Date.now(),row.id,Date.now()-15*60000).run();if(!changed(lock))return json({error:'正在保存，请稍后重试。'},409);
-  try{if(meta?.upload_id)await bucket.resumeMultipartUpload(key,meta.upload_id).abort().catch(()=>{});
+  const lock=await db.prepare("UPDATE creator_videos SET state='uploading',updated_at=? WHERE id=? AND (state IN ('reserved','failed','unlisted') OR (state IN ('uploading','verifying') AND updated_at<?))").bind(Date.now(),row.id,Date.now()-15*60000).run();if(!changed(lock))return json({error:'正在保存，请稍后重试。'},409);
+  try{if(meta?.upload_id)await bucket.resumeMultipartUpload(key,meta.upload_id).abort().catch(()=>{});if(row.state==='unlisted')await bucket.delete(key).catch(()=>{});
    const upload=await bucket.createMultipartUpload(key,{httpMetadata:{contentType:row.mime}});
    await db.prepare("INSERT INTO wallpaper_media(id,mime,upload_id,parts) VALUES(?,?,?,'{}') ON CONFLICT(id) DO UPDATE SET upload_id=excluded.upload_id,parts='{}'").bind(row.id,row.mime,upload.uploadId).run();return json({partSize:PART_SIZE,parts:{},uploadId:upload.uploadId});
   }catch(e){await db.prepare("UPDATE creator_videos SET state='failed' WHERE id=?").bind(row.id).run();return json({error:'无法开始上传，请重试。'},503);}
@@ -163,8 +165,8 @@ async function handleVideos(request,env,user,path){
   return new Response(object.body,{headers:{'Content-Type':'image/jpeg','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
  }
  if(action==='content'&&request.method==='PUT'){
-  if(['ready','review','approved','published','unlisted'].includes(row.state))return json({ok:true,state:row.state});
-  const lock=await db.prepare("UPDATE creator_videos SET state='uploading',updated_at=? WHERE id=? AND (state IN ('reserved','failed') OR (state='uploading' AND updated_at<?))").bind(Date.now(),row.id,Date.now()-15*60000).run();if(!changed(lock))return json({error:'文件正在处理中，请稍后再试。'},409);
+  if(['ready','review','approved','published'].includes(row.state))return json({ok:true,state:row.state});
+  const lock=await db.prepare("UPDATE creator_videos SET state='uploading',updated_at=? WHERE id=? AND (state IN ('reserved','failed','unlisted') OR (state='uploading' AND updated_at<?))").bind(Date.now(),row.id,Date.now()-15*60000).run();if(!changed(lock))return json({error:'文件正在处理中，请稍后再试。'},409);
   try{
    if(row.size>PART_SIZE)throw Error('大文件请刷新网页后使用分块上传。');if(request.headers.get('Content-Type')!==row.mime)throw Error('文件类型不符。');
    const bytes=await limitedBody(request,Math.min(row.size,VIDEO_MAX));if(bytes.length!==row.size)throw Error('文件传输不完整，请重试。');
